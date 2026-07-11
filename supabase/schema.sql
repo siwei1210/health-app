@@ -13,11 +13,16 @@ create extension if not exists "pgcrypto";
 --  profiles  — one row per auth user
 -- ----------------------------------------------------------------------------
 create table if not exists public.profiles (
-  id           uuid primary key references auth.users (id) on delete cascade,
-  weight_unit  text not null default 'lb',
-  seeded       boolean not null default false,
-  created_at   timestamptz not null default now()
+  id             uuid primary key references auth.users (id) on delete cascade,
+  weight_unit    text not null default 'lb',
+  seeded         boolean not null default false,
+  sleep_factors  text[] not null default '{}',   -- the user's sleep factor chips
+  created_at     timestamptz not null default now()
 );
+
+-- Upgrade path for databases created before `sleep_factors` existed.
+alter table public.profiles
+  add column if not exists sleep_factors text[] not null default '{}';
 
 -- ----------------------------------------------------------------------------
 --  exercises — the user's exercise catalog + live progression state
