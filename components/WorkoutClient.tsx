@@ -50,7 +50,9 @@ export default function WorkoutClient({
   const [showNotes, setShowNotes] = useState(false);
   const [editing, setEditing] = useState<Exercise | null>(null);
   const [saving, setSaving] = useState(false);
-  const [restKey, setRestKey] = useState(0); // bump to (re)start rest timer
+  // Timestamp of the last logged set — drives the rest timer (persisted so it
+  // survives tab switches).
+  const [lastSetAt, setLastSetAt] = useState<number | null>(null);
 
   // Workout clock: set when you press Start (or tap the first set).
   const [startTime, setStartTime] = useState<number | null>(null);
@@ -78,6 +80,7 @@ export default function WorkoutClient({
       }
       if (s.log) setLog(s.log);
       setStartTime(s.startTime);
+      if (typeof s.lastSetAt === "number") setLastSetAt(s.lastSetAt);
       if (s.notes) {
         setNotes(s.notes);
         setShowNotes(true);
@@ -98,13 +101,14 @@ export default function WorkoutClient({
         ACTIVE_KEY,
         JSON.stringify({
           startTime,
+          lastSetAt,
           tplId: templates[tplIndex]?.id,
           log,
           notes,
         })
       );
     } catch {}
-  }, [startTime, tplIndex, log, notes, templates]);
+  }, [startTime, lastSetAt, tplIndex, log, notes, templates]);
 
   const template = templates[tplIndex];
 
@@ -133,7 +137,7 @@ export default function WorkoutClient({
       else cur[setIdx] = null;
       return { ...prev, [ex.id]: cur };
     });
-    setRestKey((k) => k + 1); // restart rest timer on each logged tap
+    setLastSetAt(Date.now()); // restart rest timer on each logged tap
   }
 
   function persistExercise(next: Exercise) {
@@ -354,7 +358,7 @@ export default function WorkoutClient({
       ) : (
         <>
           <div className="mt-6">
-            <RestTimer key={restKey} running={loggedCount > 0} />
+            <RestTimer since={lastSetAt} />
           </div>
           <div className="mt-3 flex items-center justify-between rounded-2xl bg-surface p-4">
             <div>
