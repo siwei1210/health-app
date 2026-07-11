@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { SleepEntry } from "@/lib/types";
 import { localDateStr } from "@/lib/logic";
 import CopyButton from "./CopyButton";
+import SwipeRow from "./SwipeRow";
 
 // Factors offered by default; the chip list also includes anything you've
 // tagged before, so new factors stick around once used.
@@ -233,6 +234,16 @@ export default function SleepClient({
   function removeFactor(f: string) {
     saveFactors(factors.filter((x) => x !== f));
     setTags((prev) => prev.filter((x) => x !== f));
+  }
+
+  async function deleteEntry(id: string) {
+    const prev = entries;
+    setEntries((e) => e.filter((x) => x.id !== id)); // optimistic
+    const { error } = await supabase.from("sleep_entries").delete().eq("id", id);
+    if (error) {
+      setEntries(prev); // roll back
+      alert("Could not delete: " + error.message);
+    }
   }
 
   async function save() {
@@ -503,15 +514,16 @@ export default function SleepClient({
               <p className="text-muted">No sleep logged yet.</p>
             )}
             {entries.map((e) => (
-              <button
+              <SwipeRow
                 key={e.id}
-                onClick={() => {
+                onDelete={() => deleteEntry(e.id)}
+                onTap={() => {
                   setNightOf(e.night_of);
                   setView("log");
                   window.scrollTo({ top: 0, behavior: "smooth" });
                 }}
-                className="flex w-full items-start justify-between rounded-xl bg-surface px-4 py-3 text-left"
               >
+                <div className="flex w-full items-start justify-between bg-surface px-4 py-3 text-left">
                 <div className="min-w-0">
                   <div className="font-medium">
                     {new Date(e.night_of + "T00:00:00").toLocaleDateString(
@@ -549,7 +561,8 @@ export default function SleepClient({
                     {e.quality ? "★".repeat(e.quality) : ""}
                   </div>
                 </div>
-              </button>
+                </div>
+              </SwipeRow>
             ))}
           </div>
         </>
