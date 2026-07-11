@@ -86,9 +86,9 @@ export default function ExerciseEditor({
         </div>
         <div className="flex items-center justify-center gap-4">
           <button
-            aria-label="minus 5"
+            aria-label="minus 2"
             onClick={() =>
-              patch({ current_weight: Math.max(0, ex.current_weight - 5) })
+              patch({ current_weight: Math.max(0, ex.current_weight - 2) })
             }
             className="flex h-14 w-14 items-center justify-center rounded-full bg-surface-2 text-3xl font-light active:bg-hair"
           >
@@ -104,8 +104,8 @@ export default function ExerciseEditor({
             <span className="ml-1 text-2xl font-semibold text-muted">{unit}</span>
           </div>
           <button
-            aria-label="plus 5"
-            onClick={() => patch({ current_weight: ex.current_weight + 5 })}
+            aria-label="plus 2"
+            onClick={() => patch({ current_weight: ex.current_weight + 2 })}
             className="flex h-14 w-14 items-center justify-center rounded-full bg-accent text-3xl font-light text-white active:opacity-80"
           >
             +
@@ -134,20 +134,20 @@ export default function ExerciseEditor({
           <button
             onClick={() =>
               patch({
-                current_weight: Math.max(0, roundWeight(ex.current_weight - 2)),
+                current_weight: Math.max(0, roundWeight(ex.current_weight - 5)),
               })
             }
             className="rounded-xl bg-surface-2 py-3 font-medium"
           >
-            −2
+            −5
           </button>
           <button
             onClick={() =>
-              patch({ current_weight: roundWeight(ex.current_weight + 2) })
+              patch({ current_weight: roundWeight(ex.current_weight + 5) })
             }
             className="rounded-xl bg-surface-2 py-3 font-medium"
           >
-            +2
+            +5
           </button>
         </div>
 

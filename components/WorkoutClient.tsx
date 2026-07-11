@@ -250,7 +250,7 @@ export default function WorkoutClient({
                   <ChevronRight />
                 </span>
               </button>
-              <div className="mt-3 flex gap-3 overflow-x-auto pb-1">
+              <div className="mt-3 -mx-1.5 flex gap-3 overflow-x-auto px-1.5 py-1.5">
                 {sets.map((reps, i) => (
                   <SetCircle
                     key={i}
