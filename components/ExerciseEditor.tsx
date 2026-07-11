@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Exercise } from "@/lib/types";
 import { formatWeight, platesPerSide, roundWeight } from "@/lib/logic";
 
@@ -55,13 +55,10 @@ export default function ExerciseEditor({
             −
           </button>
           <div className="flex items-baseline justify-center">
-            <input
-              type="number"
-              inputMode="decimal"
+            <NumInput
               value={ex.current_weight}
-              onChange={(e) =>
-                patch({ current_weight: Number(e.target.value) })
-              }
+              min={0}
+              onChange={(v) => patch({ current_weight: v })}
               className="w-36 bg-transparent text-center text-6xl font-bold tabular-nums outline-none"
             />
             <span className="ml-1 text-2xl font-semibold text-muted">{unit}</span>
@@ -140,39 +137,46 @@ export default function ExerciseEditor({
           <Field label="Sets">
             <NumInput
               value={ex.sets}
-              onChange={(v) => patch({ sets: Math.max(1, Math.round(v)) })}
+              min={1}
+              integer
+              onChange={(v) => patch({ sets: v })}
             />
           </Field>
           <Field label="Reps">
             <NumInput
               value={ex.reps}
-              onChange={(v) => patch({ reps: Math.max(1, Math.round(v)) })}
+              min={1}
+              integer
+              onChange={(v) => patch({ reps: v })}
             />
           </Field>
           <Field label={`Increment (${unit})`}>
             <NumInput
               value={ex.increment}
+              min={0}
               onChange={(v) => patch({ increment: v })}
             />
           </Field>
           <Field label="Deload %">
             <NumInput
               value={ex.deload_pct}
+              min={0}
               onChange={(v) => patch({ deload_pct: v })}
             />
           </Field>
           <Field label={`Bar weight (${unit})`}>
             <NumInput
               value={ex.bar_weight}
+              min={0}
               onChange={(v) => patch({ bar_weight: v })}
             />
           </Field>
           <Field label="Deload after N fails">
             <NumInput
               value={ex.deload_after_fails}
-              onChange={(v) =>
-                patch({ deload_after_fails: Math.max(1, Math.round(v)) })
-              }
+              min={1}
+              integer
+              onChange={(v) => patch({ deload_after_fails: v })}
             />
           </Field>
         </div>
@@ -203,20 +207,59 @@ function Field({
   );
 }
 
+// Numeric input that lets you clear the field and type freely. It holds a
+// raw string draft while focused (so the value can be temporarily empty) and
+// only clamps / normalizes on blur — fixing the "can't delete, snaps to 1" bug.
 function NumInput({
   value,
   onChange,
+  min,
+  integer,
+  className = "rounded-xl bg-surface-2 px-3 py-2.5 text-lg outline-none",
 }: {
   value: number;
   onChange: (v: number) => void;
+  min?: number;
+  integer?: boolean;
+  className?: string;
 }) {
+  const [draft, setDraft] = useState(String(value));
+
+  // Re-sync when the value changes from the outside (e.g. +/- buttons), but
+  // not while the user is mid-edit typing the same number.
+  useEffect(() => {
+    if (Number(draft) !== value) setDraft(String(value));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  function normalize(raw: string) {
+    if (raw.trim() === "" || Number.isNaN(Number(raw))) {
+      setDraft(String(value)); // revert empties/garbage to the last good value
+      return;
+    }
+    let n = Number(raw);
+    if (integer) n = Math.round(n);
+    if (min !== undefined) n = Math.max(min, n);
+    setDraft(String(n));
+    onChange(n);
+  }
+
   return (
     <input
-      type="number"
+      type="text"
       inputMode="decimal"
-      value={value}
-      onChange={(e) => onChange(Number(e.target.value))}
-      className="rounded-xl bg-surface-2 px-3 py-2.5 text-lg outline-none"
+      value={draft}
+      onChange={(e) => {
+        const raw = e.target.value;
+        setDraft(raw);
+        // Live-update only when it's a valid number; don't clamp yet so the
+        // user can freely delete and retype.
+        if (raw.trim() !== "" && !Number.isNaN(Number(raw))) {
+          onChange(integer ? Math.round(Number(raw)) : Number(raw));
+        }
+      }}
+      onBlur={(e) => normalize(e.target.value)}
+      className={className}
     />
   );
 }
