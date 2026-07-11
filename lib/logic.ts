@@ -48,28 +48,47 @@ export function applyProgression(
   return { current_weight: ex.current_weight, fail_streak: nextStreak };
 }
 
-// Plate calculator. `available` is the plates you actually own (per side).
+// Plate calculator. Inventory is the *total* number of each plate you own;
+// plates load in pairs, so per side you can use floor(count / 2) of each.
+export type PlateCount = { plate: number; count: number };
+
 // Denominations offered in the plate-inventory editor:
 export const COMMON_PLATES = [45, 35, 25, 15, 10, 5, 3, 2.5, 2, 1.25, 1, 0.5];
-// Default inventory: 35/25/15/10/3/2/1 lb plates (no 2.5, no 5, no 45).
-export const DEFAULT_OWNED_PLATES = [35, 25, 15, 10, 3, 2, 1];
+
+// Default inventory (total owned). Small plates match the user's real set:
+// one 3 lb, two 2 lb, two 1 lb; larger plates assumed plentiful (editable).
+export const DEFAULT_PLATE_INVENTORY: PlateCount[] = [
+  { plate: 45, count: 0 },
+  { plate: 35, count: 4 },
+  { plate: 25, count: 4 },
+  { plate: 15, count: 4 },
+  { plate: 10, count: 4 },
+  { plate: 5, count: 0 },
+  { plate: 3, count: 1 },
+  { plate: 2, count: 2 },
+  { plate: 1, count: 2 },
+];
 
 export function platesPerSide(
   totalWeight: number,
   barWeight: number,
-  available: number[] = DEFAULT_OWNED_PLATES
-): { plate: number; count: number }[] {
+  inventory: PlateCount[] = DEFAULT_PLATE_INVENTORY
+): PlateCount[] {
   let perSide = (totalWeight - barWeight) / 2;
   if (perSide <= 1e-9) return [];
-  const sorted = [...available].filter((p) => p > 0).sort((a, b) => b - a);
-  const result: { plate: number; count: number }[] = [];
-  for (const plate of sorted) {
-    let count = 0;
-    while (perSide >= plate - 1e-9) {
+  // How many of each plate are usable per side (need a pair to balance).
+  const perSideAvail = inventory
+    .map((p) => ({ plate: p.plate, count: Math.floor(p.count / 2) }))
+    .filter((p) => p.plate > 0 && p.count > 0)
+    .sort((a, b) => b.plate - a.plate);
+  const result: PlateCount[] = [];
+  for (const { plate, count } of perSideAvail) {
+    let used = 0;
+    while (used < count && perSide >= plate - 1e-9) {
       perSide -= plate;
-      count++;
+      used++;
     }
-    if (count > 0) result.push({ plate, count });
+    if (used > 0) result.push({ plate, count: used });
   }
   return result;
 }

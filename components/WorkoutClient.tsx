@@ -43,7 +43,6 @@ export default function WorkoutClient({
     )
   );
   const [log, setLog] = useState<Log>({});
-  const [bodyWeight, setBodyWeight] = useState("");
   const [notes, setNotes] = useState("");
   const [showNotes, setShowNotes] = useState(false);
   const [editing, setEditing] = useState<Exercise | null>(null);
@@ -137,7 +136,7 @@ export default function WorkoutClient({
           template_id: template.id,
           template_name: template.name,
           performed_at: localDateStr(),
-          body_weight: bodyWeight ? Number(bodyWeight) : null,
+          body_weight: null,
           notes: notes || null,
           duration_seconds: duration,
         })
@@ -265,22 +264,6 @@ export default function WorkoutClient({
             </div>
           );
         })}
-      </div>
-
-      {/* Body weight */}
-      <div className="mt-7 flex items-center justify-between rounded-2xl bg-surface px-4 py-4">
-        <span className="text-lg">Body Weight</span>
-        <div className="flex items-center gap-1">
-          <input
-            type="number"
-            inputMode="decimal"
-            value={bodyWeight}
-            onChange={(e) => setBodyWeight(e.target.value)}
-            placeholder="—"
-            className="w-24 bg-transparent text-right text-lg outline-none placeholder:text-muted"
-          />
-          <span className="text-lg text-muted">{unit}</span>
-        </div>
       </div>
 
       {/* Notes */}
