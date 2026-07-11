@@ -36,14 +36,52 @@ export default function ExerciseEditor({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-hair" />
-        <div className="mb-1 text-center text-xl font-semibold">{ex.name}</div>
-        <div className="mb-5 text-center text-muted">
-          {formatWeight(ex.current_weight, unit)} ({formatWeight(perSide, unit)}
-          /side)
+        <div className="mb-3 text-center text-base font-medium text-muted">
+          {ex.name}
         </div>
 
-        {/* Weight controls */}
-        <div className="grid grid-cols-4 gap-2">
+        {/* Total weight — the hero number, stepped by big −/+ buttons */}
+        <div className="mb-1 text-center text-xs font-semibold uppercase tracking-widest text-muted">
+          Total weight
+        </div>
+        <div className="flex items-center justify-center gap-4">
+          <button
+            aria-label="minus 5"
+            onClick={() =>
+              patch({ current_weight: Math.max(0, ex.current_weight - 5) })
+            }
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-surface-2 text-3xl font-light active:bg-hair"
+          >
+            −
+          </button>
+          <div className="flex items-baseline justify-center">
+            <input
+              type="number"
+              inputMode="decimal"
+              value={ex.current_weight}
+              onChange={(e) =>
+                patch({ current_weight: Number(e.target.value) })
+              }
+              className="w-36 bg-transparent text-center text-6xl font-bold tabular-nums outline-none"
+            />
+            <span className="ml-1 text-2xl font-semibold text-muted">{unit}</span>
+          </div>
+          <button
+            aria-label="plus 5"
+            onClick={() => patch({ current_weight: ex.current_weight + 5 })}
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-accent text-3xl font-light active:opacity-80"
+          >
+            +
+          </button>
+        </div>
+        <div className="mb-4 mt-2 text-center text-muted">
+          {formatWeight(perSide, unit)} / side · {ex.sets}×{ex.reps} ={" "}
+          {formatWeight(roundWeight(ex.current_weight * ex.sets * ex.reps), unit)}{" "}
+          total volume
+        </div>
+
+        {/* Fine adjustments + deload */}
+        <div className="grid grid-cols-3 gap-2">
           <button
             onClick={() =>
               patch({
@@ -54,35 +92,26 @@ export default function ExerciseEditor({
             }
             className="rounded-xl bg-surface-2 py-3 text-sm font-medium"
           >
-            Deload
+            Deload −{ex.deload_pct}%
           </button>
           <button
             onClick={() =>
               patch({
-                current_weight: Math.max(0, ex.current_weight - 5),
+                current_weight: Math.max(0, roundWeight(ex.current_weight - 2.5)),
               })
             }
             className="rounded-xl bg-surface-2 py-3 font-medium"
           >
-            −5
+            −2.5
           </button>
           <button
-            onClick={() => patch({ current_weight: ex.current_weight + 5 })}
+            onClick={() =>
+              patch({ current_weight: roundWeight(ex.current_weight + 2.5) })
+            }
             className="rounded-xl bg-surface-2 py-3 font-medium"
           >
-            +5
+            +2.5
           </button>
-          <div className="flex items-center rounded-xl bg-surface-2 px-2">
-            <input
-              type="number"
-              inputMode="decimal"
-              value={ex.current_weight}
-              onChange={(e) =>
-                patch({ current_weight: Number(e.target.value) })
-              }
-              className="w-full bg-transparent text-center text-lg outline-none"
-            />
-          </div>
         </div>
 
         {/* Plate calculator */}

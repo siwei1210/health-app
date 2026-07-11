@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { seedProgram } from "@/lib/seed";
 import TabBar from "@/components/TabBar";
 
 export default async function AppLayout({
@@ -15,12 +14,8 @@ export default async function AppLayout({
 
   if (!user) redirect("/login");
 
-  // Ensure the 5x5 program exists (first login only; guarded by profiles.seeded).
-  try {
-    await seedProgram(supabase, user.id);
-  } catch {
-    // Non-fatal: the workout tab surfaces an empty state if seeding failed.
-  }
+  // Note: program seeding happens inside the workout page (awaited before it
+  // reads the program) so the two never race on first login.
 
   return (
     <div className="mx-auto max-w-lg min-h-screen pb-24">
