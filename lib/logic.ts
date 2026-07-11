@@ -48,26 +48,39 @@ export function applyProgression(
   return { current_weight: ex.current_weight, fail_streak: nextStreak };
 }
 
-// Plate calculator: which plates per side to load, given total weight & bar.
-const DEFAULT_PLATES = [45, 35, 25, 10, 5, 2.5, 1.25];
+// Plate calculator. `available` is the plates you actually own (per side).
+// Denominations offered in the plate-inventory editor:
+export const COMMON_PLATES = [45, 35, 25, 15, 10, 5, 3, 2.5, 2, 1.25, 1, 0.5];
+// Default inventory: 35/25/15/10/3/2/1 lb plates (no 2.5, no 5, no 45).
+export const DEFAULT_OWNED_PLATES = [35, 25, 15, 10, 3, 2, 1];
 
 export function platesPerSide(
   totalWeight: number,
   barWeight: number,
-  available: number[] = DEFAULT_PLATES
+  available: number[] = DEFAULT_OWNED_PLATES
 ): { plate: number; count: number }[] {
   let perSide = (totalWeight - barWeight) / 2;
-  if (perSide <= 0) return [];
+  if (perSide <= 1e-9) return [];
+  const sorted = [...available].filter((p) => p > 0).sort((a, b) => b - a);
   const result: { plate: number; count: number }[] = [];
-  for (const plate of available) {
+  for (const plate of sorted) {
     let count = 0;
     while (perSide >= plate - 1e-9) {
-      perSide = roundWeight(perSide - plate);
+      perSide -= plate;
       count++;
     }
     if (count > 0) result.push({ plate, count });
   }
   return result;
+}
+
+// Total weight actually achievable with the given plate breakdown.
+export function loadedWeight(
+  plates: { plate: number; count: number }[],
+  barWeight: number
+): number {
+  const perSide = plates.reduce((s, p) => s + p.plate * p.count, 0);
+  return roundWeight(barWeight + perSide * 2);
 }
 
 export function formatWeight(w: number, unit = "lb"): string {

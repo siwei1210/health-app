@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { Exercise } from "@/lib/types";
@@ -50,7 +50,15 @@ export default function WorkoutClient({
   const [saving, setSaving] = useState(false);
   const [restKey, setRestKey] = useState(0); // bump to (re)start rest timer
 
-  const startedAt = useRef<number | null>(null);
+  // Workout clock: set when you press Start (or tap the first set).
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const [nowTick, setNowTick] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (startTime == null) return;
+    const id = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [startTime]);
 
   const template = templates[tplIndex];
 
@@ -69,7 +77,7 @@ export default function WorkoutClient({
   }
 
   function tapSet(ex: Exercise, setIdx: number) {
-    if (startedAt.current === null) startedAt.current = Date.now();
+    setStartTime((t) => t ?? Date.now());
     setLog((prev) => {
       const cur = [...(prev[ex.id] ?? Array(ex.sets).fill(null))];
       const v = cur[setIdx];
@@ -118,8 +126,8 @@ export default function WorkoutClient({
       if (!user) throw new Error("Not signed in");
 
       const duration =
-        startedAt.current !== null
-          ? Math.round((Date.now() - startedAt.current) / 1000)
+        startTime !== null
+          ? Math.round((Date.now() - startTime) / 1000)
           : null;
 
       const { data: session, error: sErr } = await supabase
@@ -190,6 +198,18 @@ export default function WorkoutClient({
     (n, e) => n + setsFor(e).filter((r) => r !== null).length,
     0
   );
+
+  // Rough estimate: ~3.5 min per work set (lift + rest).
+  const totalSets = template.exercises.reduce(
+    (n, e) => n + (exMap[e.id]?.sets ?? e.sets),
+    0
+  );
+  const estMinutes = Math.max(10, Math.round(totalSets * 3.5));
+  const started = startTime != null;
+  const elapsedSec = started ? Math.floor((nowTick - startTime!) / 1000) : 0;
+  const em = Math.floor(elapsedSec / 60);
+  const es = String(elapsedSec % 60).padStart(2, "0");
+  const finishAt = (started ? startTime! : Date.now()) + estMinutes * 60000;
 
   return (
     <div className="px-4 pt-6">
@@ -281,19 +301,54 @@ export default function WorkoutClient({
         </button>
       )}
 
-      {/* Rest timer */}
-      <div className="mt-6">
-        <RestTimer key={restKey} running={loggedCount > 0} />
-      </div>
-
-      {/* Finish */}
-      <button
-        onClick={finish}
-        disabled={saving}
-        className="mt-4 w-full rounded-2xl bg-accent py-4 text-lg font-semibold text-white disabled:opacity-50"
-      >
-        {saving ? "Saving…" : `Finish workout${loggedCount ? ` (${loggedCount} sets)` : ""}`}
-      </button>
+      {/* Start / running timer */}
+      {!started ? (
+        <div className="mt-6 flex items-center justify-between rounded-2xl bg-surface p-4">
+          <div>
+            <div className="text-xl font-bold">Start Workout</div>
+            <div className="text-sm text-muted">
+              ~{estMinutes} min · finish by {clock(finishAt)}
+            </div>
+          </div>
+          <button
+            onClick={() => setStartTime(Date.now())}
+            className="rounded-full bg-accent px-8 py-3 text-lg font-semibold text-white"
+          >
+            Start
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="mt-6">
+            <RestTimer key={restKey} running={loggedCount > 0} />
+          </div>
+          <div className="mt-3 flex items-center justify-between rounded-2xl bg-surface p-4">
+            <div>
+              <div className="text-xs uppercase tracking-wide text-muted">
+                Elapsed
+              </div>
+              <div className="text-2xl font-bold tabular-nums">
+                {em}:{es}
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-xs uppercase tracking-wide text-muted">
+                Est. finish
+              </div>
+              <div className="text-lg font-semibold">{clock(finishAt)}</div>
+            </div>
+          </div>
+          <button
+            onClick={finish}
+            disabled={saving}
+            className="mt-3 w-full rounded-2xl bg-accent py-4 text-lg font-semibold text-white disabled:opacity-50"
+          >
+            {saving
+              ? "Saving…"
+              : `Finish workout${loggedCount ? ` (${loggedCount} sets)` : ""}`}
+          </button>
+        </>
+      )}
 
       {editing && (
         <ExerciseEditor
@@ -308,6 +363,13 @@ export default function WorkoutClient({
       )}
     </div>
   );
+}
+
+function clock(ts: number): string {
+  return new Date(ts).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function ChevronRight() {

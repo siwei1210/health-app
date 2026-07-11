@@ -49,6 +49,49 @@ function mean(nums: number[]): number {
   return nums.reduce((a, b) => a + b, 0) / nums.length;
 }
 
+// Quality 1–5 → color + label. 1–2 bad, 3 not great, 4 good, 5 excellent 🎉
+const QUALITY_META: Record<
+  number,
+  { bg: string; text: string; label: string; emoji: string }
+> = {
+  1: { bg: "bg-red-600", text: "text-red-500", label: "Bad", emoji: "😖" },
+  2: { bg: "bg-orange-500", text: "text-orange-500", label: "Bad", emoji: "😕" },
+  3: { bg: "bg-amber-400", text: "text-amber-500", label: "Not great", emoji: "😐" },
+  4: { bg: "bg-emerald-500", text: "text-emerald-500", label: "Good", emoji: "🙂" },
+  5: { bg: "bg-emerald-400", text: "text-emerald-400", label: "Excellent!", emoji: "🎉" },
+};
+
+function qualityBg(q: number | null): string {
+  return q ? QUALITY_META[q].bg : "bg-gold";
+}
+
+function StatTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-surface p-3 text-center">
+      <div className="text-xs text-muted">{label}</div>
+      <div className="text-lg font-semibold text-gold">{value}</div>
+    </div>
+  );
+}
+
+// A little celebratory burst for a 5/5 night.
+function Confetti() {
+  const pieces = ["🎉", "✨", "🎊", "⭐", "💛", "🎉", "✨", "🎊"];
+  return (
+    <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+      {pieces.map((e, i) => (
+        <span
+          key={i}
+          className="confetti-piece absolute text-lg"
+          style={{ "--a": `${Math.round((i / pieces.length) * 360)}deg` } as Record<string, string>}
+        >
+          {e}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function hhmm(iso: string | null): string {
   if (!iso) return "";
   return new Date(iso).toLocaleTimeString([], {
@@ -111,6 +154,12 @@ export default function SleepClient({
     initialFactors.length ? initialFactors : DEFAULT_FACTORS
   );
   const [editingFactors, setEditingFactors] = useState(false);
+  const [celebrateKey, setCelebrateKey] = useState(0);
+
+  // Confetti burst when you rate a night 5/5.
+  useEffect(() => {
+    if (quality === 5) setCelebrateKey((k) => k + 1);
+  }, [quality]);
 
   const preview = computeMinutes(nightOf, bedtime, wake);
 
@@ -226,22 +275,70 @@ export default function SleepClient({
     }
   }
 
-  const avg7 = useMemo(() => {
-    const recent = entries
-      .slice(0, 7)
-      .map((e) => e.duration_minutes)
-      .filter((m): m is number => m != null);
-    if (recent.length === 0) return null;
-    return Math.round(mean(recent));
+  // Average duration over the last N calendar days.
+  function avgLastDays(days: number): number | null {
+    const c = new Date();
+    c.setDate(c.getDate() - (days - 1));
+    const cutoff = localDateStr(c);
+    const ds = entries
+      .filter((e) => e.night_of >= cutoff && e.duration_minutes != null)
+      .map((e) => e.duration_minutes as number);
+    return ds.length ? Math.round(mean(ds)) : null;
+  }
+
+  // The last 7 calendar nights (most recent on the right), for the mini chart.
+  const last7 = useMemo(() => {
+    const arr: { ds: string; date: Date; entry: SleepEntry | null }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const ds = localDateStr(d);
+      arr.push({ ds, date: d, entry: entries.find((e) => e.night_of === ds) ?? null });
+    }
+    return arr;
   }, [entries]);
+  const maxDur = Math.max(480, ...last7.map((x) => x.entry?.duration_minutes ?? 0));
 
   return (
     <div className="px-4 pt-6">
-      <div className="mb-5 flex items-baseline justify-between">
-        <h1 className="text-3xl font-bold">Sleep</h1>
-        {avg7 != null && (
-          <span className="text-muted">7-day avg {fmtDuration(avg7)}</span>
-        )}
+      <h1 className="mb-4 text-3xl font-bold">Sleep</h1>
+
+      {/* Summary: rolling averages + last 7 nights */}
+      <div className="mb-4 grid grid-cols-3 gap-2">
+        <StatTile label="7-day avg" value={fmtDuration(avgLastDays(7))} />
+        <StatTile label="14-day avg" value={fmtDuration(avgLastDays(14))} />
+        <StatTile label="30-day avg" value={fmtDuration(avgLastDays(30))} />
+      </div>
+      <div className="mb-6 rounded-2xl bg-surface p-4">
+        <div className="mb-3 text-sm text-muted">Last 7 nights</div>
+        <div className="flex justify-between gap-2">
+          {last7.map((d) => {
+            const mins = d.entry?.duration_minutes ?? 0;
+            const pct = mins ? Math.max(8, (mins / maxDur) * 100) : 0;
+            const hrs = mins ? (mins / 60).toFixed(1) : "";
+            return (
+              <div key={d.ds} className="flex flex-1 flex-col items-center gap-1">
+                <span className="h-3 text-[9px] text-muted">{hrs}</span>
+                <div className="flex h-24 w-full items-end justify-center">
+                  <div className="flex h-full w-6 items-end rounded-md bg-surface-2">
+                    {mins > 0 && (
+                      <div
+                        className={`w-full rounded-md ${qualityBg(
+                          d.entry?.quality ?? null
+                        )}`}
+                        style={{ height: `${pct}%` }}
+                        title={fmtDuration(mins)}
+                      />
+                    )}
+                  </div>
+                </div>
+                <span className="text-[10px] text-muted">
+                  {d.date.toLocaleDateString(undefined, { weekday: "narrow" })}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Segmented control */}
@@ -257,11 +354,6 @@ export default function SleepClient({
             {t === "log" ? "Log" : "Insights"}
           </button>
         ))}
-      </div>
-
-      {/* Export for AI analysis */}
-      <div className="mb-4 flex justify-end">
-        <CopyButton getText={buildSleepExport} label="Copy log for AI" />
       </div>
 
       {view === "log" ? (
@@ -298,23 +390,33 @@ export default function SleepClient({
                 {fmtDuration(preview?.minutes ?? null)}
               </span>
             </Row>
-            <div className="flex items-center justify-between pt-1">
-              <span className="text-lg">Quality</span>
-              <div className="flex gap-1">
-                {[1, 2, 3, 4, 5].map((q) => (
-                  <button
-                    key={q}
-                    onClick={() => setQuality(q)}
-                    className={`h-9 w-9 rounded-full text-sm font-semibold ${
-                      q <= quality
-                        ? "bg-gold text-black"
-                        : "bg-surface-2 text-muted"
-                    }`}
-                  >
-                    {q}
-                  </button>
-                ))}
+            <div className="relative pt-1">
+              <div className="flex items-center justify-between">
+                <span className="text-lg">Quality</span>
+                <div className="flex items-center gap-1.5">
+                  {[1, 2, 3, 4, 5].map((q) => (
+                    <button
+                      key={q}
+                      onClick={() => setQuality(q)}
+                      className={`h-10 w-10 rounded-full text-sm font-bold text-white transition-transform ${qualityBg(
+                        q
+                      )} ${
+                        quality === q
+                          ? "scale-110 ring-2 ring-fg"
+                          : "opacity-40"
+                      }`}
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
               </div>
+              <div className="mt-1 flex justify-end">
+                <span className={`text-sm font-semibold ${QUALITY_META[quality].text}`}>
+                  {QUALITY_META[quality].emoji} {QUALITY_META[quality].label}
+                </span>
+              </div>
+              {quality === 5 && <Confetti key={celebrateKey} />}
             </div>
 
             {/* Factors */}
@@ -439,7 +541,11 @@ export default function SleepClient({
                   <div className="text-lg text-gold">
                     {fmtDuration(e.duration_minutes)}
                   </div>
-                  <div className="text-sm text-muted">
+                  <div
+                    className={`text-sm ${
+                      e.quality ? QUALITY_META[e.quality].text : "text-muted"
+                    }`}
+                  >
                     {e.quality ? "★".repeat(e.quality) : ""}
                   </div>
                 </div>
@@ -450,6 +556,11 @@ export default function SleepClient({
       ) : (
         <Insights entries={entries} />
       )}
+
+      {/* Export for AI analysis — at the bottom of the screen */}
+      <div className="mt-8 flex justify-center">
+        <CopyButton getText={buildSleepExport} label="Copy log for AI" />
+      </div>
     </div>
   );
 }
