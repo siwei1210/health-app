@@ -221,8 +221,13 @@ export default function WorkoutClient({
                 className="flex w-full items-center justify-between"
               >
                 <span className="text-2xl font-semibold">{ex.name}</span>
-                <span className="flex items-center gap-1 text-lg text-white/90">
-                  {ex.sets}×{ex.reps} {formatWeight(ex.current_weight, unit)}
+                <span className="flex items-baseline gap-1.5">
+                  <span className="text-sm text-muted">
+                    {ex.sets}×{ex.reps}
+                  </span>
+                  <span className="text-xl font-bold text-white">
+                    {formatWeight(ex.current_weight, unit)}
+                  </span>
                   <ChevronRight />
                 </span>
               </button>

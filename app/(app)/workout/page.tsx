@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import WorkoutClient, { type TemplateWithExercises } from "@/components/WorkoutClient";
+import { seedProgram } from "@/lib/seed";
 import type { Exercise } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +11,14 @@ export default async function WorkoutPage() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return null;
+
+  // Seed the program (first login only; guarded by profiles.seeded) BEFORE
+  // reading it, so the seed and the read never race on the first render.
+  try {
+    await seedProgram(supabase, user.id);
+  } catch {
+    // Non-fatal: the empty state below covers a failed seed.
+  }
 
   const [{ data: templates }, { data: tplEx }, { data: lastSession }] =
     await Promise.all([

@@ -12,12 +12,13 @@ type SeedExercise = {
   reps: number;
 };
 
-// Exercise catalog
-const SQUAT: SeedExercise = { name: "Squat", current_weight: 101, increment: 2, sets: 5, reps: 5 };
-const BENCH: SeedExercise = { name: "Bench Press", current_weight: 95, increment: 5, sets: 5, reps: 5 };
-const ROW: SeedExercise = { name: "Barbell Row", current_weight: 95, increment: 5, sets: 5, reps: 5 };
-const OHP: SeedExercise = { name: "Overhead Press", current_weight: 45, increment: 5, sets: 5, reps: 5 };
-const DEAD: SeedExercise = { name: "Deadlift", current_weight: 95, increment: 10, sets: 1, reps: 5 };
+// Exercise catalog. Default is 3 sets × 8 reps per exercise; sets/reps are
+// editable per exercise in the app, so this is only the starting point.
+const SQUAT: SeedExercise = { name: "Squat", current_weight: 101, increment: 2, sets: 3, reps: 8 };
+const BENCH: SeedExercise = { name: "Bench Press", current_weight: 95, increment: 5, sets: 3, reps: 8 };
+const ROW: SeedExercise = { name: "Barbell Row", current_weight: 95, increment: 5, sets: 3, reps: 8 };
+const OHP: SeedExercise = { name: "Overhead Press", current_weight: 45, increment: 5, sets: 3, reps: 8 };
+const DEAD: SeedExercise = { name: "Deadlift", current_weight: 95, increment: 10, sets: 3, reps: 8 };
 
 // Workout A: Squat, Bench, Row   |   Workout B: Squat, OHP, Deadlift
 const WORKOUT_A = [SQUAT, BENCH, ROW];
