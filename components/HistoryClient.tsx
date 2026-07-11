@@ -6,6 +6,7 @@ import { formatWeight } from "@/lib/logic";
 import { APP_VERSION } from "@/lib/version";
 import ThemeToggle from "./ThemeToggle";
 import CopyButton from "./CopyButton";
+import SwipeRow from "./SwipeRow";
 
 export type SessionSummary = {
   id: string;
@@ -24,15 +25,30 @@ const MONTHS = [
 const DOW = ["S", "M", "T", "W", "T", "F", "S"];
 
 export default function HistoryClient({
-  sessions,
+  sessions: initialSessions,
 }: {
   sessions: SessionSummary[];
 }) {
+  const supabase = useMemo(() => createClient(), []);
   const [tab, setTab] = useState<"calendar" | "list">("calendar");
+  const [sessions, setSessions] = useState(initialSessions);
   const trainedDays = useMemo(
     () => new Set(sessions.map((s) => s.performed_at)),
     [sessions]
   );
+
+  async function deleteSession(id: string) {
+    const prev = sessions;
+    setSessions((s) => s.filter((x) => x.id !== id)); // optimistic
+    const { error } = await supabase
+      .from("workout_sessions")
+      .delete()
+      .eq("id", id);
+    if (error) {
+      setSessions(prev); // roll back
+      alert("Could not delete: " + error.message);
+    }
+  }
 
   return (
     <div className="px-4 pt-6">
@@ -70,7 +86,7 @@ export default function HistoryClient({
       {tab === "calendar" ? (
         <Calendars trainedDays={trainedDays} />
       ) : (
-        <SessionList sessions={sessions} />
+        <SessionList sessions={sessions} onDelete={deleteSession} />
       )}
 
       <p className="mt-10 pb-2 text-center text-xs text-muted">
@@ -170,14 +186,21 @@ function MonthGrid({
   );
 }
 
-function SessionList({ sessions }: { sessions: SessionSummary[] }) {
+function SessionList({
+  sessions,
+  onDelete,
+}: {
+  sessions: SessionSummary[];
+  onDelete: (id: string) => void;
+}) {
   if (sessions.length === 0) {
     return <p className="text-muted">No workouts logged yet.</p>;
   }
   return (
     <div className="space-y-3">
       {sessions.map((s) => (
-        <div key={s.id} className="rounded-2xl bg-surface p-4">
+        <SwipeRow key={s.id} onDelete={() => onDelete(s.id)}>
+        <div className="bg-surface p-4">
           <div className="mb-2 flex items-center justify-between">
             <div className="font-semibold">
               {new Date(s.performed_at + "T00:00:00").toLocaleDateString(
@@ -214,6 +237,7 @@ function SessionList({ sessions }: { sessions: SessionSummary[] }) {
             </div>
           )}
         </div>
+        </SwipeRow>
       ))}
     </div>
   );
