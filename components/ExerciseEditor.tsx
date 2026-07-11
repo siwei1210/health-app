@@ -213,17 +213,20 @@ export default function ExerciseEditor({
             <div className="text-muted">Just the bar</div>
           ) : (
             <>
+              {/* One chip per physical plate so you can count each color. */}
               <div className="flex flex-wrap gap-2">
-                {plates.map((p) => (
-                  <span
-                    key={p.plate}
-                    className={`rounded-lg px-3 py-1 font-semibold ${plateChip(
-                      p.plate
-                    )}`}
-                  >
-                    {p.count}×{p.plate}
-                  </span>
-                ))}
+                {plates.flatMap((p) =>
+                  Array.from({ length: p.count }, (_, i) => (
+                    <span
+                      key={`${p.plate}-${i}`}
+                      className={`rounded-lg px-3 py-1 font-semibold ${plateChip(
+                        p.plate
+                      )}`}
+                    >
+                      {p.plate}
+                    </span>
+                  ))
+                )}
               </div>
               {Math.abs(achieved - ex.current_weight) > 1e-6 && (
                 <div className="mt-2 text-xs text-accent">
