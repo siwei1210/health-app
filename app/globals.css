@@ -61,3 +61,18 @@ input[type="number"] {
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
 }
+
+/* Confetti burst (quality = 5, "excellent") */
+@keyframes confettiBurst {
+  0% {
+    transform: rotate(var(--a)) translateY(4px) scale(0.4);
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(var(--a)) translateY(-70px) scale(1.15);
+    opacity: 0;
+  }
+}
+.confetti-piece {
+  animation: confettiBurst 900ms ease-out forwards;
+}

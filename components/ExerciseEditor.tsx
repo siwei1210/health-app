@@ -2,7 +2,14 @@
 
 import { useEffect, useState } from "react";
 import type { Exercise } from "@/lib/types";
-import { formatWeight, platesPerSide, roundWeight } from "@/lib/logic";
+import {
+  COMMON_PLATES,
+  DEFAULT_OWNED_PLATES,
+  formatWeight,
+  loadedWeight,
+  platesPerSide,
+  roundWeight,
+} from "@/lib/logic";
 
 // Bottom-sheet editor for an exercise: working weight, sets×reps, increment,
 // deload, plus a live plate calculator. Mirrors the app's "Weights" screen.
@@ -19,11 +26,35 @@ export default function ExerciseEditor({
 }) {
   const [ex, setEx] = useState<Exercise>(exercise);
 
+  // The plates you actually own (per side), persisted on this device.
+  const [ownedPlates, setOwnedPlates] = useState<number[]>(DEFAULT_OWNED_PLATES);
+  const [editingPlates, setEditingPlates] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("ownedPlates");
+      if (raw) setOwnedPlates(JSON.parse(raw));
+    } catch {}
+  }, []);
+
+  function toggleOwnedPlate(p: number) {
+    setOwnedPlates((prev) => {
+      const next = (
+        prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]
+      ).sort((a, b) => b - a);
+      try {
+        localStorage.setItem("ownedPlates", JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }
+
   function patch(p: Partial<Exercise>) {
     setEx((e) => ({ ...e, ...p }));
   }
 
-  const plates = platesPerSide(ex.current_weight, ex.bar_weight);
+  const plates = platesPerSide(ex.current_weight, ex.bar_weight, ownedPlates);
+  const achieved = loadedWeight(plates, ex.bar_weight);
   const perSide = Math.max(0, roundWeight((ex.current_weight - ex.bar_weight) / 2));
 
   return (
@@ -113,22 +144,62 @@ export default function ExerciseEditor({
 
         {/* Plate calculator */}
         <div className="mt-4 rounded-2xl bg-surface-2 p-4">
-          <div className="mb-2 text-sm text-muted">
-            Plates per side (bar {formatWeight(ex.bar_weight, unit)})
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-sm text-muted">
+              Plates per side (bar {formatWeight(ex.bar_weight, unit)})
+            </span>
+            <button
+              onClick={() => setEditingPlates((v) => !v)}
+              className="text-sm font-medium text-gold"
+            >
+              {editingPlates ? "Done" : "Edit plates"}
+            </button>
           </div>
-          {plates.length === 0 ? (
+
+          {editingPlates ? (
+            <div>
+              <div className="mb-2 text-xs text-muted">
+                Tap the plates you own.
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {COMMON_PLATES.map((p) => {
+                  const owned = ownedPlates.includes(p);
+                  return (
+                    <button
+                      key={p}
+                      onClick={() => toggleOwnedPlate(p)}
+                      className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
+                        owned ? "bg-gold text-black" : "bg-surface text-muted"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : plates.length === 0 ? (
             <div className="text-muted">Just the bar</div>
           ) : (
-            <div className="flex flex-wrap gap-2">
-              {plates.map((p) => (
-                <span
-                  key={p.plate}
-                  className="rounded-lg bg-gold px-3 py-1 font-semibold text-black"
-                >
-                  {p.count}×{p.plate}
-                </span>
-              ))}
-            </div>
+            <>
+              <div className="flex flex-wrap gap-2">
+                {plates.map((p) => (
+                  <span
+                    key={p.plate}
+                    className="rounded-lg bg-gold px-3 py-1 font-semibold text-black"
+                  >
+                    {p.count}×{p.plate}
+                  </span>
+                ))}
+              </div>
+              {Math.abs(achieved - ex.current_weight) > 1e-6 && (
+                <div className="mt-2 text-xs text-accent">
+                  Closest with your plates: {formatWeight(achieved, unit)} (target{" "}
+                  {formatWeight(ex.current_weight, unit)}). Tap “Edit plates” to
+                  adjust.
+                </div>
+              )}
+            </>
           )}
         </div>
 
