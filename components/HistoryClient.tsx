@@ -3,7 +3,9 @@
 import { useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatWeight } from "@/lib/logic";
+import { APP_VERSION } from "@/lib/version";
 import ThemeToggle from "./ThemeToggle";
+import CopyButton from "./CopyButton";
 
 export type SessionSummary = {
   id: string;
@@ -43,7 +45,7 @@ export default function HistoryClient({
       </div>
 
       {/* Segmented control */}
-      <div className="mb-6 flex rounded-full bg-surface p-1">
+      <div className="mb-4 flex rounded-full bg-surface p-1">
         {(["calendar", "list"] as const).map((t) => (
           <button
             key={t}
@@ -57,13 +59,49 @@ export default function HistoryClient({
         ))}
       </div>
 
+      {/* Export for AI analysis */}
+      <div className="mb-5 flex justify-end">
+        <CopyButton
+          getText={() => formatWorkoutExport(sessions)}
+          label="Copy log for AI"
+        />
+      </div>
+
       {tab === "calendar" ? (
         <Calendars trainedDays={trainedDays} />
       ) : (
         <SessionList sessions={sessions} />
       )}
+
+      <p className="mt-10 pb-2 text-center text-xs text-muted">
+        Health v{APP_VERSION}
+      </p>
     </div>
   );
+}
+
+// Markdown table of the workout log, ready to paste into an AI chat.
+function formatWorkoutExport(sessions: SessionSummary[]): string {
+  const sorted = [...sessions].sort((a, b) =>
+    a.performed_at < b.performed_at ? -1 : 1
+  );
+  const lines: string[] = [];
+  lines.push(`# Workout log (exported ${new Date().toISOString().slice(0, 10)})`);
+  lines.push(`Sessions: ${sorted.length}`);
+  lines.push("");
+  lines.push("| Date | Workout | Exercises | Body weight | Notes |");
+  lines.push("|---|---|---|---|---|");
+  for (const s of sorted) {
+    const ex = s.exercises
+      .map((e) => `${e.name} ${e.sets}×${e.reps} ${formatWeight(e.weight)}`)
+      .join("; ");
+    const bw = s.body_weight != null ? formatWeight(s.body_weight) : "";
+    const notes = (s.notes ?? "").replace(/\r?\n/g, " ").replace(/\|/g, "/");
+    lines.push(
+      `| ${s.performed_at} | ${s.template_name ?? ""} | ${ex} | ${bw} | ${notes} |`
+    );
+  }
+  return lines.join("\n");
 }
 
 function Calendars({ trainedDays }: { trainedDays: Set<string> }) {

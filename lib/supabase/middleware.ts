@@ -42,6 +42,9 @@ export async function updateSession(request: NextRequest) {
     path.startsWith("/login") ||
     path.startsWith("/auth") ||
     path.startsWith("/_next") ||
+    path.startsWith("/icon") ||
+    path.startsWith("/apple-icon") ||
+    path.startsWith("/manifest") ||
     path === "/favicon.ico";
 
   if (!user && !isPublic) {

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { SleepEntry } from "@/lib/types";
 import { localDateStr } from "@/lib/logic";
+import CopyButton from "./CopyButton";
 
 // Factors offered by default; the chip list also includes anything you've
 // tagged before, so new factors stick around once used.
@@ -46,6 +47,42 @@ function fmtHours(min: number): string {
 
 function mean(nums: number[]): number {
   return nums.reduce((a, b) => a + b, 0) / nums.length;
+}
+
+function hhmm(iso: string | null): string {
+  if (!iso) return "";
+  return new Date(iso).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+// A Markdown table of the whole sleep log, ready to paste into an AI chat.
+function formatSleepExport(rows: SleepEntry[]): string {
+  const sorted = [...rows].sort((a, b) => (a.night_of < b.night_of ? -1 : 1));
+  const durs = sorted
+    .map((e) => e.duration_minutes)
+    .filter((m): m is number => m != null);
+  const lines: string[] = [];
+  lines.push(`# Sleep log (exported ${localDateStr()})`);
+  lines.push(`Nights logged: ${sorted.length}`);
+  if (durs.length)
+    lines.push(`Average duration: ${fmtDuration(Math.round(mean(durs)))}`);
+  lines.push("");
+  lines.push("| Date | Duration | Quality | Bedtime | Wake | Factors | Notes |");
+  lines.push("|---|---|---|---|---|---|---|");
+  for (const e of sorted) {
+    const dur = e.duration_minutes != null ? fmtDuration(e.duration_minutes) : "";
+    const q = e.quality != null ? `${e.quality}/5` : "";
+    const factors = (e.tags ?? []).join(", ");
+    const notes = (e.notes ?? "").replace(/\r?\n/g, " ").replace(/\|/g, "/");
+    lines.push(
+      `| ${e.night_of} | ${dur} | ${q} | ${hhmm(e.bedtime)} | ${hhmm(
+        e.wake_time
+      )} | ${factors} | ${notes} |`
+    );
+  }
+  return lines.join("\n");
 }
 
 export default function SleepClient({
@@ -117,6 +154,15 @@ export default function SleepClient({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nightOf]);
+
+  // Pull the *entire* history (not just the loaded window) for export.
+  async function buildSleepExport(): Promise<string> {
+    const { data } = await supabase
+      .from("sleep_entries")
+      .select("*")
+      .order("night_of", { ascending: true });
+    return formatSleepExport((data as SleepEntry[]) ?? entries);
+  }
 
   function toggleTag(t: string) {
     setTags((prev) =>
@@ -211,6 +257,11 @@ export default function SleepClient({
             {t === "log" ? "Log" : "Insights"}
           </button>
         ))}
+      </div>
+
+      {/* Export for AI analysis */}
+      <div className="mb-4 flex justify-end">
+        <CopyButton getText={buildSleepExport} label="Copy log for AI" />
       </div>
 
       {view === "log" ? (
