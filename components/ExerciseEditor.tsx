@@ -179,7 +179,14 @@ export default function ExerciseEditor({
                       key={p}
                       className="flex items-center justify-between py-1"
                     >
-                      <span className="text-sm">{p} lb</span>
+                      <span className="flex items-center gap-2 text-sm">
+                        <span
+                          className={`inline-block h-3.5 w-3.5 rounded-full ${plateSwatch(
+                            p
+                          )}`}
+                        />
+                        {p} lb
+                      </span>
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => setPlateCount(p, count - 1)}
@@ -210,7 +217,9 @@ export default function ExerciseEditor({
                 {plates.map((p) => (
                   <span
                     key={p.plate}
-                    className="rounded-lg bg-gold px-3 py-1 font-semibold text-black"
+                    className={`rounded-lg px-3 py-1 font-semibold ${plateChip(
+                      p.plate
+                    )}`}
                   >
                     {p.count}×{p.plate}
                   </span>
@@ -285,6 +294,33 @@ export default function ExerciseEditor({
       </div>
     </div>
   );
+}
+
+// Real-world plate colors: 1 lb white, 2 lb green, 3 lb yellow, rest black.
+function plateChip(plate: number): string {
+  switch (plate) {
+    case 1:
+      return "bg-white text-black ring-1 ring-black/20";
+    case 2:
+      return "bg-green-600 text-white";
+    case 3:
+      return "bg-yellow-400 text-black";
+    default:
+      return "bg-neutral-900 text-white ring-1 ring-white/25";
+  }
+}
+
+function plateSwatch(plate: number): string {
+  switch (plate) {
+    case 1:
+      return "bg-white ring-1 ring-black/25";
+    case 2:
+      return "bg-green-600";
+    case 3:
+      return "bg-yellow-400";
+    default:
+      return "bg-neutral-900 ring-1 ring-white/30";
+  }
 }
 
 function Field({
