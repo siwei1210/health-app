@@ -94,20 +94,20 @@ export default function ExerciseEditor({
           <button
             onClick={() =>
               patch({
-                current_weight: Math.max(0, roundWeight(ex.current_weight - 2.5)),
+                current_weight: Math.max(0, roundWeight(ex.current_weight - 2)),
               })
             }
             className="rounded-xl bg-surface-2 py-3 font-medium"
           >
-            −2.5
+            −2
           </button>
           <button
             onClick={() =>
-              patch({ current_weight: roundWeight(ex.current_weight + 2.5) })
+              patch({ current_weight: roundWeight(ex.current_weight + 2) })
             }
             className="rounded-xl bg-surface-2 py-3 font-medium"
           >
-            +2.5
+            +2
           </button>
         </div>
 
