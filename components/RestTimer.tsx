@@ -17,29 +17,37 @@ function zoneIndex(s: number): number {
   return idx;
 }
 
-// Counts up from 0 whenever it (re)mounts. WorkoutClient bumps its `key`
-// on each logged set so rest restarts, StrongLifts-style.
-export default function RestTimer({
-  running,
-  initialSeconds = 0,
-}: {
-  running: boolean;
-  initialSeconds?: number;
-}) {
-  const [seconds, setSeconds] = useState(initialSeconds);
+// Shows time since your last set. `since` is a timestamp (ms), so the elapsed
+// value is derived from the clock and survives remounts (tab switches) — it
+// resumes instead of restarting. Pass null before any set is logged.
+export default function RestTimer({ since }: { since: number | null }) {
+  const [now, setNow] = useState(() => Date.now());
   const [flash, setFlash] = useState(false);
-  const lastZone = useRef(0);
+  const lastZone = useRef<number | null>(null);
   const audioRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
-    if (!running) return;
-    const id = setInterval(() => setSeconds((s) => s + 1), 1000);
+    if (since == null) return;
+    setNow(Date.now());
+    const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
-  }, [running]);
+  }, [since]);
 
-  // Fire an alert when we cross into a higher zone.
+  const running = since != null;
+  const seconds = running ? Math.max(0, Math.floor((now - since) / 1000)) : 0;
+
+  // Fire an alert only when crossing UP into a higher zone (never replay past
+  // thresholds when the tab remounts mid-rest).
   useEffect(() => {
+    if (!running) {
+      lastZone.current = null;
+      return;
+    }
     const z = zoneIndex(seconds);
+    if (lastZone.current === null) {
+      lastZone.current = z; // first observation: sync, don't alert
+      return;
+    }
     if (z > lastZone.current) {
       lastZone.current = z;
       alertUser(z);
@@ -47,16 +55,15 @@ export default function RestTimer({
       const t = setTimeout(() => setFlash(false), 1200);
       return () => clearTimeout(t);
     }
-  }, [seconds]);
+    if (z < lastZone.current) lastZone.current = z; // new set restarted rest
+  }, [seconds, running]);
 
   function alertUser(z: number) {
-    // Haptics (Android; iOS Safari ignores this).
     try {
       navigator.vibrate?.(
         z === 1 ? [180] : z === 2 ? [200, 120, 200] : [260, 120, 260, 120, 260]
       );
     } catch {}
-    // Best-effort beep (z beeps). iOS may block if the tab is muted.
     try {
       const Ctx =
         window.AudioContext ||
