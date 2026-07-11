@@ -118,11 +118,16 @@ create table if not exists public.sleep_entries (
   duration_minutes integer,
   quality          integer,                             -- 1..5
   notes            text,
+  tags             text[] not null default '{}',   -- factors, e.g. {"sleep tea"}
   created_at       timestamptz not null default now(),
   unique (user_id, night_of)
 );
 create index if not exists sleep_user_date_idx
   on public.sleep_entries (user_id, night_of desc);
+
+-- Upgrade path for databases created before `tags` existed.
+alter table public.sleep_entries
+  add column if not exists tags text[] not null default '{}';
 
 -- ============================================================================
 --  Row Level Security — every table is locked to the owning auth user
