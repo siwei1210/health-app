@@ -162,7 +162,7 @@ export default function SleepClient({
         <button
           onClick={save}
           disabled={saving}
-          className="w-full rounded-xl bg-accent py-3 font-semibold disabled:opacity-50"
+          className="w-full rounded-xl bg-accent py-3 font-semibold text-white disabled:opacity-50"
         >
           {saving ? "Saving…" : "Save sleep"}
         </button>

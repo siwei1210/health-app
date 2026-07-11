@@ -2,14 +2,38 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ---------------------------------------------------------------------------
+   Theme tokens. Light is the default; `.dark` on <html> switches to dark.
+   Values are RGB channel triplets so Tailwind can apply opacity modifiers.
+--------------------------------------------------------------------------- */
 :root {
+  --ink: 242 242 247; /* iOS grouped background */
+  --fg: 0 0 0;
+  --surface: 255 255 255;
+  --surface-2: 233 233 238;
+  --hair: 209 209 214;
+  --muted: 108 108 112;
+  --accent: 255 59 48;
+  --gold: 200 138 0;
+  color-scheme: light;
+}
+
+.dark {
+  --ink: 0 0 0;
+  --fg: 255 255 255;
+  --surface: 28 28 30;
+  --surface-2: 44 44 46;
+  --hair: 56 56 58;
+  --muted: 142 142 147;
+  --accent: 255 59 48;
+  --gold: 255 176 46;
   color-scheme: dark;
 }
 
 html,
 body {
-  background: #000;
-  color: #fff;
+  background: rgb(var(--ink));
+  color: rgb(var(--fg));
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -23,7 +47,17 @@ input[type="number"] {
   -moz-appearance: textfield;
 }
 
-/* Respect iOS safe areas for the bottom tab bar */
+/* ---------------------------------------------------------------------------
+   iPhone safe areas (Dynamic Island / home indicator). Requires
+   viewport-fit=cover, set in the layout viewport export.
+--------------------------------------------------------------------------- */
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
 .pb-safe {
   padding-bottom: calc(env(safe-area-inset-bottom) + 0.5rem);
+}
+.px-safe {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }

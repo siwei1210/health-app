@@ -37,7 +37,7 @@ export default function LoginPage() {
             <p className="text-muted text-sm">
               We sent a magic sign-in link to
               <br />
-              <span className="text-white">{email}</span>
+              <span className="text-fg">{email}</span>
             </p>
             <button
               onClick={() => setSent(false)}
@@ -60,7 +60,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-xl bg-accent py-3 font-semibold disabled:opacity-50"
+              className="w-full rounded-xl bg-accent py-3 font-semibold text-white disabled:opacity-50"
             >
               {loading ? "Sending…" : "Send magic link"}
             </button>

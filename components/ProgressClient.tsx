@@ -120,10 +120,10 @@ export default function ProgressClient({
             />
             <Tooltip
               contentStyle={{
-                background: "#1c1c1e",
-                border: "1px solid #38383a",
+                background: "rgb(var(--surface))",
+                border: "1px solid rgb(var(--hair))",
                 borderRadius: 12,
-                color: "#fff",
+                color: "rgb(var(--fg))",
               }}
               labelFormatter={(d) =>
                 new Date(d + "T00:00:00").toLocaleDateString()
@@ -149,7 +149,7 @@ export default function ProgressClient({
             key={r}
             onClick={() => setRange(r)}
             className={`flex-1 rounded-full py-2 text-sm font-medium ${
-              range === r ? "bg-surface-2 text-white" : "text-muted"
+              range === r ? "bg-surface-2 text-fg" : "text-muted"
             }`}
           >
             {r === "ALL" ? "∞" : r}

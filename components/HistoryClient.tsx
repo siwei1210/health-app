@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatWeight } from "@/lib/logic";
+import ThemeToggle from "./ThemeToggle";
 
 export type SessionSummary = {
   id: string;
@@ -33,9 +34,12 @@ export default function HistoryClient({
 
   return (
     <div className="px-4 pt-6">
-      <div className="mb-5 flex items-center justify-between">
+      <div className="mb-5 flex items-center justify-between gap-3">
         <h1 className="text-3xl font-bold">History</h1>
-        <SignOut />
+        <div className="flex items-center gap-3">
+          <ThemeToggle />
+          <SignOut />
+        </div>
       </div>
 
       {/* Segmented control */}
@@ -45,7 +49,7 @@ export default function HistoryClient({
             key={t}
             onClick={() => setTab(t)}
             className={`flex-1 rounded-full py-2 text-sm font-medium capitalize ${
-              tab === t ? "bg-surface-2 text-white" : "text-muted"
+              tab === t ? "bg-surface-2 text-fg" : "text-muted"
             }`}
           >
             {t}
@@ -115,7 +119,7 @@ function MonthGrid({
             <div key={i} className="flex justify-center">
               <div
                 className={`flex h-9 w-9 items-center justify-center rounded-full text-sm ${
-                  trained ? "bg-accent font-semibold text-white" : "text-white/90"
+                  trained ? "bg-accent font-semibold text-white" : "text-fg/90"
                 }`}
               >
                 {day}
@@ -157,7 +161,7 @@ function SessionList({ sessions }: { sessions: SessionSummary[] }) {
           <div className="space-y-1">
             {s.exercises.map((e, i) => (
               <div key={i} className="flex justify-between text-sm">
-                <span className="text-white/90">{e.name}</span>
+                <span className="text-fg/90">{e.name}</span>
                 <span className="text-muted">
                   {e.sets}×{e.reps} {formatWeight(e.weight)}
                 </span>
