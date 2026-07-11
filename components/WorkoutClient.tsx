@@ -23,6 +23,9 @@ export type TemplateWithExercises = {
 // Local per-exercise logging state: reps per set (null = not logged yet).
 type Log = Record<string, (number | null)[]>;
 
+// localStorage key for an in-progress workout (persists across tab switches).
+const ACTIVE_KEY = "activeWorkout";
+
 export default function WorkoutClient({
   templates,
   startIndex,
@@ -58,6 +61,50 @@ export default function WorkoutClient({
     const id = setInterval(() => setNowTick(Date.now()), 1000);
     return () => clearInterval(id);
   }, [startTime]);
+
+  // Restore an in-progress workout on mount (survives tab switches / reloads).
+  // Ignores stale sessions older than 12h.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(ACTIVE_KEY);
+      if (!raw) return;
+      const s = JSON.parse(raw);
+      if (
+        typeof s.startTime !== "number" ||
+        Date.now() - s.startTime > 12 * 3600 * 1000
+      ) {
+        localStorage.removeItem(ACTIVE_KEY);
+        return;
+      }
+      if (s.log) setLog(s.log);
+      setStartTime(s.startTime);
+      if (s.notes) {
+        setNotes(s.notes);
+        setShowNotes(true);
+      }
+      if (s.tplId) {
+        const idx = templates.findIndex((t) => t.id === s.tplId);
+        if (idx >= 0) setTplIndex(idx);
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persist the in-progress workout whenever it changes.
+  useEffect(() => {
+    if (startTime == null && Object.keys(log).length === 0) return;
+    try {
+      localStorage.setItem(
+        ACTIVE_KEY,
+        JSON.stringify({
+          startTime,
+          tplId: templates[tplIndex]?.id,
+          log,
+          notes,
+        })
+      );
+    } catch {}
+  }, [startTime, tplIndex, log, notes, templates]);
 
   const template = templates[tplIndex];
 
@@ -184,6 +231,10 @@ export default function WorkoutClient({
           })
           .eq("id", ex.id);
       }
+
+      try {
+        localStorage.removeItem(ACTIVE_KEY);
+      } catch {}
 
       router.push("/history");
       router.refresh();
