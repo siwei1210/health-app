@@ -66,7 +66,7 @@ export default function ExerciseEditor({
           <button
             aria-label="plus 5"
             onClick={() => patch({ current_weight: ex.current_weight + 5 })}
-            className="flex h-14 w-14 items-center justify-center rounded-full bg-accent text-3xl font-light active:opacity-80"
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-accent text-3xl font-light text-white active:opacity-80"
           >
             +
           </button>
@@ -183,7 +183,7 @@ export default function ExerciseEditor({
 
         <button
           onClick={() => onSave(ex)}
-          className="mt-6 w-full rounded-2xl bg-accent py-4 text-lg font-semibold"
+          className="mt-6 w-full rounded-2xl bg-accent py-4 text-lg font-semibold text-white"
         >
           Save
         </button>

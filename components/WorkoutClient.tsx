@@ -198,7 +198,7 @@ export default function WorkoutClient({
         <select
           value={tplIndex}
           onChange={(e) => setTplIndex(Number(e.target.value))}
-          className="rounded-full bg-surface px-4 py-2 text-lg font-semibold text-white outline-none"
+          className="rounded-full bg-surface px-4 py-2 text-lg font-semibold text-fg outline-none"
         >
           {templates.map((t, i) => (
             <option key={t.id} value={i}>
@@ -225,7 +225,7 @@ export default function WorkoutClient({
                   <span className="text-sm text-muted">
                     {ex.sets}×{ex.reps}
                   </span>
-                  <span className="text-xl font-bold text-white">
+                  <span className="text-xl font-bold text-fg">
                     {formatWeight(ex.current_weight, unit)}
                   </span>
                   <ChevronRight />
@@ -290,7 +290,7 @@ export default function WorkoutClient({
       <button
         onClick={finish}
         disabled={saving}
-        className="mt-4 w-full rounded-2xl bg-accent py-4 text-lg font-semibold disabled:opacity-50"
+        className="mt-4 w-full rounded-2xl bg-accent py-4 text-lg font-semibold text-white disabled:opacity-50"
       >
         {saving ? "Saving…" : `Finish workout${loggedCount ? ` (${loggedCount} sets)` : ""}`}
       </button>

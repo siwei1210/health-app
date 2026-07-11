@@ -18,7 +18,7 @@ export default async function AppLayout({
   // reads the program) so the two never race on first login.
 
   return (
-    <div className="mx-auto max-w-lg min-h-screen pb-24">
+    <div className="mx-auto max-w-lg min-h-screen px-safe pb-24 pt-safe">
       {children}
       <TabBar />
     </div>
