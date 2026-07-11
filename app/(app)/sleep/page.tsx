@@ -6,11 +6,25 @@ export const dynamic = "force-dynamic";
 
 export default async function SleepPage() {
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("sleep_entries")
-    .select("*")
-    .order("night_of", { ascending: false })
-    .limit(30);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  return <SleepClient initialEntries={(data as SleepEntry[]) ?? []} />;
+  const [{ data }, { data: profile }] = await Promise.all([
+    supabase
+      .from("sleep_entries")
+      .select("*")
+      .order("night_of", { ascending: false })
+      .limit(60),
+    user
+      ? supabase.from("profiles").select("sleep_factors").eq("id", user.id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+
+  return (
+    <SleepClient
+      initialEntries={(data as SleepEntry[]) ?? []}
+      initialFactors={(profile?.sleep_factors as string[]) ?? []}
+    />
+  );
 }

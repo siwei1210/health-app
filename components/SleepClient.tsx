@@ -50,8 +50,10 @@ function mean(nums: number[]): number {
 
 export default function SleepClient({
   initialEntries,
+  initialFactors,
 }: {
   initialEntries: SleepEntry[];
+  initialFactors: string[];
 }) {
   const supabase = useMemo(() => createClient(), []);
   const [entries, setEntries] = useState(initialEntries);
@@ -66,14 +68,36 @@ export default function SleepClient({
   const [newFactor, setNewFactor] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // The user's editable factor catalog (persisted on their profile). Falls
+  // back to defaults on first use.
+  const [factors, setFactors] = useState<string[]>(
+    initialFactors.length ? initialFactors : DEFAULT_FACTORS
+  );
+  const [editingFactors, setEditingFactors] = useState(false);
+
   const preview = computeMinutes(nightOf, bedtime, wake);
 
-  // The union of default factors and everything ever tagged.
+  // Persist the catalog to profiles.sleep_factors.
+  async function saveFactors(next: string[]) {
+    setFactors(next);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase.from("profiles").update({ sleep_factors: next }).eq("id", user.id);
+  }
+
+  // Seed the catalog into the profile the first time (empty on a fresh user).
+  useEffect(() => {
+    if (initialFactors.length === 0) saveFactors(DEFAULT_FACTORS);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Chips to show: the catalog, plus any tag already selected for this night
+  // (so nothing selected is ever hidden).
   const allFactors = useMemo(() => {
-    const set = new Set<string>(DEFAULT_FACTORS);
-    for (const e of entries) for (const t of e.tags ?? []) set.add(t);
-    return Array.from(set);
-  }, [entries]);
+    return Array.from(new Set<string>([...factors, ...tags]));
+  }, [factors, tags]);
 
   // When you pick a date that's already logged, load it so re-saving edits
   // (rather than wipes) that night.
@@ -103,8 +127,17 @@ export default function SleepClient({
   function addFactor() {
     const f = newFactor.trim();
     if (!f) return;
+    // Add to the catalog (if new) and select it for tonight.
+    if (!factors.some((x) => x.toLowerCase() === f.toLowerCase())) {
+      saveFactors([...factors, f]);
+    }
     if (!tags.includes(f)) setTags((prev) => [...prev, f]);
     setNewFactor("");
+  }
+
+  function removeFactor(f: string) {
+    saveFactors(factors.filter((x) => x !== f));
+    setTags((prev) => prev.filter((x) => x !== f));
   }
 
   async function save() {
@@ -235,23 +268,47 @@ export default function SleepClient({
 
             {/* Factors */}
             <div className="pt-1">
-              <div className="mb-2 text-sm text-muted">
-                Factors (what you did that night)
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-sm text-muted">
+                  Factors (what you did that night)
+                </span>
+                <button
+                  onClick={() => setEditingFactors((v) => !v)}
+                  className="text-sm font-medium text-gold"
+                >
+                  {editingFactors ? "Done" : "Edit"}
+                </button>
               </div>
               <div className="flex flex-wrap gap-2">
-                {allFactors.map((f) => (
-                  <button
-                    key={f}
-                    onClick={() => toggleTag(f)}
-                    className={`rounded-full px-3 py-1.5 text-sm font-medium ${
-                      tags.includes(f)
-                        ? "bg-gold text-black"
-                        : "bg-surface-2 text-muted"
-                    }`}
-                  >
-                    {f}
-                  </button>
-                ))}
+                {allFactors.map((f) => {
+                  const selected = tags.includes(f);
+                  return (
+                    <span
+                      key={f}
+                      className={`inline-flex items-center rounded-full text-sm font-medium ${
+                        selected ? "bg-gold text-black" : "bg-surface-2 text-muted"
+                      }`}
+                    >
+                      <button
+                        onClick={() => toggleTag(f)}
+                        className={`py-1.5 pl-3 ${editingFactors ? "pr-1.5" : "pr-3"}`}
+                      >
+                        {f}
+                      </button>
+                      {editingFactors && (
+                        <button
+                          onClick={() => removeFactor(f)}
+                          aria-label={`Remove ${f}`}
+                          className={`py-1.5 pl-0.5 pr-2.5 ${
+                            selected ? "text-black/60" : "text-muted"
+                          }`}
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </span>
+                  );
+                })}
               </div>
               <div className="mt-2 flex gap-2">
                 <input
