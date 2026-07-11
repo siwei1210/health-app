@@ -71,5 +71,6 @@ export type SleepEntry = {
   duration_minutes: number | null;
   quality: number | null;
   notes: string | null;
+  tags: string[];
   created_at: string;
 };
