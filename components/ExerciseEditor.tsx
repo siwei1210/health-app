@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import type { Exercise } from "@/lib/types";
 import {
   COMMON_PLATES,
-  DEFAULT_OWNED_PLATES,
+  DEFAULT_PLATE_INVENTORY,
+  type PlateCount,
   formatWeight,
   loadedWeight,
   platesPerSide,
@@ -26,34 +27,42 @@ export default function ExerciseEditor({
 }) {
   const [ex, setEx] = useState<Exercise>(exercise);
 
-  // The plates you actually own (per side), persisted on this device.
-  const [ownedPlates, setOwnedPlates] = useState<number[]>(DEFAULT_OWNED_PLATES);
+  // Total plates you own (each denomination), persisted on this device.
+  const [inventory, setInventory] = useState<PlateCount[]>(
+    DEFAULT_PLATE_INVENTORY
+  );
   const [editingPlates, setEditingPlates] = useState(false);
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem("ownedPlates");
-      if (raw) setOwnedPlates(JSON.parse(raw));
+      const raw = localStorage.getItem("plateInventory");
+      if (raw) setInventory(JSON.parse(raw));
     } catch {}
   }, []);
 
-  function toggleOwnedPlate(p: number) {
-    setOwnedPlates((prev) => {
-      const next = (
-        prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]
-      ).sort((a, b) => b - a);
+  function setPlateCount(plate: number, count: number) {
+    setInventory((prev) => {
+      const c = Math.max(0, count);
+      const others = prev.filter((p) => p.plate !== plate);
+      const next = [...others, { plate, count: c }].sort(
+        (a, b) => b.plate - a.plate
+      );
       try {
-        localStorage.setItem("ownedPlates", JSON.stringify(next));
+        localStorage.setItem("plateInventory", JSON.stringify(next));
       } catch {}
       return next;
     });
+  }
+
+  function countOf(plate: number): number {
+    return inventory.find((p) => p.plate === plate)?.count ?? 0;
   }
 
   function patch(p: Partial<Exercise>) {
     setEx((e) => ({ ...e, ...p }));
   }
 
-  const plates = platesPerSide(ex.current_weight, ex.bar_weight, ownedPlates);
+  const plates = platesPerSide(ex.current_weight, ex.bar_weight, inventory);
   const achieved = loadedWeight(plates, ex.bar_weight);
   const perSide = Math.max(0, roundWeight((ex.current_weight - ex.bar_weight) / 2));
 
@@ -159,21 +168,36 @@ export default function ExerciseEditor({
           {editingPlates ? (
             <div>
               <div className="mb-2 text-xs text-muted">
-                Tap the plates you own.
+                How many of each plate you own (total). Plates load in pairs, so
+                you need 2 of a size to use it.
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                 {COMMON_PLATES.map((p) => {
-                  const owned = ownedPlates.includes(p);
+                  const count = countOf(p);
                   return (
-                    <button
+                    <div
                       key={p}
-                      onClick={() => toggleOwnedPlate(p)}
-                      className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
-                        owned ? "bg-gold text-black" : "bg-surface text-muted"
-                      }`}
+                      className="flex items-center justify-between py-1"
                     >
-                      {p}
-                    </button>
+                      <span className="text-sm">{p} lb</span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setPlateCount(p, count - 1)}
+                          className="flex h-7 w-7 items-center justify-center rounded-full bg-surface text-lg leading-none"
+                        >
+                          −
+                        </button>
+                        <span className="w-4 text-center text-sm tabular-nums">
+                          {count}
+                        </span>
+                        <button
+                          onClick={() => setPlateCount(p, count + 1)}
+                          className="flex h-7 w-7 items-center justify-center rounded-full bg-surface text-lg leading-none"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
