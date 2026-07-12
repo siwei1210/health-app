@@ -544,7 +544,7 @@ export default function SleepClient({
                     </div>
                   )}
                   {e.notes && (
-                    <div className="mt-1 max-w-[16rem] truncate text-sm text-muted">
+                    <div className="mt-1 whitespace-pre-wrap break-words text-sm text-muted">
                       {e.notes}
                     </div>
                   )}
