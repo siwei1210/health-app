@@ -4,8 +4,40 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { SleepEntry } from "@/lib/types";
 import { localDateStr } from "@/lib/logic";
+import { sleepScore, scoreBand } from "@/lib/sleep";
 import CopyButton from "./CopyButton";
 import SwipeRow from "./SwipeRow";
+
+// Extra nightly detail fields (kept in one object to limit boilerplate).
+type Details = {
+  latency: string;
+  awakenings: string;
+  awake: string;
+  exercise: string; // "" | rest | strength | cardio | both
+  caffeinePm: boolean;
+  alcohol: boolean;
+  stress: number | null;
+  roomTemp: string;
+  energy: number | null;
+  mood: number | null;
+  symptoms: string;
+  nap: string;
+};
+const EMPTY_DETAILS: Details = {
+  latency: "",
+  awakenings: "",
+  awake: "",
+  exercise: "",
+  caffeinePm: false,
+  alcohol: false,
+  stress: null,
+  roomTemp: "",
+  energy: null,
+  mood: null,
+  symptoms: "",
+  nap: "",
+};
+const EXERCISE_OPTS = ["rest", "strength", "cardio", "both"];
 
 // Factors offered by default; the chip list also includes anything you've
 // tagged before, so new factors stick around once used.
@@ -75,6 +107,114 @@ function StatTile({ label, value }: { label: string; value: string }) {
   );
 }
 
+function ScoreTile({ label, value }: { label: string; value: number | null }) {
+  return (
+    <div className="rounded-2xl bg-surface p-3 text-center">
+      <div className="text-xs text-muted">{label}</div>
+      <div
+        className={`text-2xl font-bold ${
+          value != null ? scoreBand(value).text : "text-muted"
+        }`}
+      >
+        {value ?? "—"}
+      </div>
+    </div>
+  );
+}
+
+function ScoreBadge({ score }: { score: number }) {
+  const band = scoreBand(score);
+  return (
+    <div
+      className={`flex h-11 w-11 flex-col items-center justify-center rounded-full ${band.bg} text-white`}
+      title={`${band.label} · ${score}/100`}
+    >
+      <span className="text-sm font-bold leading-none">{score}</span>
+    </div>
+  );
+}
+
+// Compact numeric input used in the "More detail" fields.
+function NumField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <input
+      type="number"
+      inputMode="numeric"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder="—"
+      className="w-20 bg-transparent text-right text-lg outline-none placeholder:text-muted"
+    />
+  );
+}
+
+function YesNo({
+  value,
+  onChange,
+}: {
+  value: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!value)}
+      className={`rounded-full px-4 py-1.5 text-sm font-medium ${
+        value ? "bg-gold text-black" : "bg-surface-2 text-muted"
+      }`}
+    >
+      {value ? "Yes" : "No"}
+    </button>
+  );
+}
+
+function Scale5({
+  value,
+  onChange,
+}: {
+  value: number | null;
+  onChange: (v: number | null) => void;
+}) {
+  return (
+    <div className="flex gap-1.5">
+      {[1, 2, 3, 4, 5].map((n) => (
+        <button
+          key={n}
+          type="button"
+          onClick={() => onChange(value === n ? null : n)}
+          className={`h-9 w-9 rounded-full text-sm font-semibold ${
+            value === n ? "bg-gold text-black" : "bg-surface-2 text-muted"
+          }`}
+        >
+          {n}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// A label with content below it (for wide controls like the 1–5 scales).
+function Between({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-sm text-muted">{label}</span>
+      {children}
+    </div>
+  );
+}
+
 // A little celebratory burst for a 5/5 night.
 function Confetti() {
   const pieces = ["🎉", "✨", "🎊", "⭐", "💛", "🎉", "✨", "🎊"];
@@ -112,18 +252,37 @@ function formatSleepExport(rows: SleepEntry[]): string {
   lines.push(`Nights logged: ${sorted.length}`);
   if (durs.length)
     lines.push(`Average duration: ${fmtDuration(Math.round(mean(durs)))}`);
+  lines.push(
+    "Sleep score (0–100): duration 40%, bedtime consistency 20%, wake consistency 15%, quality 15%, interruptions 5%, factors 5%."
+  );
   lines.push("");
-  lines.push("| Date | Duration | Quality | Bedtime | Wake | Factors | Notes |");
-  lines.push("|---|---|---|---|---|---|---|");
+  lines.push(
+    "| Date | Score | Duration | Quality | Bedtime | Wake | Latency(min) | Awakenings | AwakeMin | Exercise | CaffeinePM | Alcohol | Stress | RoomTemp | Energy | Mood | Nap(min) | Symptoms | Factors | Notes |"
+  );
+  lines.push(
+    "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"
+  );
+  const yn = (b: boolean | null) => (b == null ? "" : b ? "yes" : "no");
+  const num = (n: number | null | undefined) => (n == null ? "" : String(n));
   for (const e of sorted) {
     const dur = e.duration_minutes != null ? fmtDuration(e.duration_minutes) : "";
     const q = e.quality != null ? `${e.quality}/5` : "";
+    const score = sleepScore(e, sorted)?.score ?? "";
     const factors = (e.tags ?? []).join(", ");
-    const notes = (e.notes ?? "").replace(/\r?\n/g, " ").replace(/\|/g, "/");
+    const clean = (s: string | null) =>
+      (s ?? "").replace(/\r?\n/g, " ").replace(/\|/g, "/");
     lines.push(
-      `| ${e.night_of} | ${dur} | ${q} | ${hhmm(e.bedtime)} | ${hhmm(
+      `| ${e.night_of} | ${score} | ${dur} | ${q} | ${hhmm(e.bedtime)} | ${hhmm(
         e.wake_time
-      )} | ${factors} | ${notes} |`
+      )} | ${num(e.latency_minutes)} | ${num(e.awakenings)} | ${num(
+        e.awake_minutes
+      )} | ${e.exercise ?? ""} | ${yn(e.caffeine_pm)} | ${yn(e.alcohol)} | ${num(
+        e.stress
+      )} | ${num(e.room_temp)} | ${num(e.morning_energy)} | ${num(
+        e.morning_mood
+      )} | ${num(e.nap_minutes)} | ${clean(e.symptoms)} | ${factors} | ${clean(
+        e.notes
+      )} |`
     );
   }
   return lines.join("\n");
@@ -148,6 +307,12 @@ export default function SleepClient({
   const [tags, setTags] = useState<string[]>([]);
   const [newFactor, setNewFactor] = useState("");
   const [saving, setSaving] = useState(false);
+  const [details, setDetails] = useState<Details>(EMPTY_DETAILS);
+  const [showDetails, setShowDetails] = useState(false);
+
+  function patchDetails(p: Partial<Details>) {
+    setDetails((d) => ({ ...d, ...p }));
+  }
 
   // The user's editable factor catalog (persisted on their profile). Falls
   // back to defaults on first use.
@@ -198,9 +363,24 @@ export default function SleepClient({
       setQuality(existing.quality ?? 4);
       setNotes(existing.notes ?? "");
       setTags(existing.tags ?? []);
+      setDetails({
+        latency: existing.latency_minutes?.toString() ?? "",
+        awakenings: existing.awakenings?.toString() ?? "",
+        awake: existing.awake_minutes?.toString() ?? "",
+        exercise: existing.exercise ?? "",
+        caffeinePm: !!existing.caffeine_pm,
+        alcohol: !!existing.alcohol,
+        stress: existing.stress ?? null,
+        roomTemp: existing.room_temp?.toString() ?? "",
+        energy: existing.morning_energy ?? null,
+        mood: existing.morning_mood ?? null,
+        symptoms: existing.symptoms ?? "",
+        nap: existing.nap_minutes?.toString() ?? "",
+      });
     } else {
       setTags([]);
       setNotes("");
+      setDetails(EMPTY_DETAILS);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nightOf]);
@@ -255,6 +435,8 @@ export default function SleepClient({
       if (!user) throw new Error("Not signed in");
 
       const calc = computeMinutes(nightOf, bedtime, wake);
+      const numOrNull = (s: string) =>
+        s.trim() === "" || Number.isNaN(Number(s)) ? null : Number(s);
       const row = {
         user_id: user.id,
         night_of: nightOf,
@@ -264,6 +446,18 @@ export default function SleepClient({
         quality,
         notes: notes || null,
         tags,
+        latency_minutes: numOrNull(details.latency),
+        awakenings: numOrNull(details.awakenings),
+        awake_minutes: numOrNull(details.awake),
+        exercise: details.exercise || null,
+        caffeine_pm: details.caffeinePm,
+        alcohol: details.alcohol,
+        stress: details.stress,
+        room_temp: numOrNull(details.roomTemp),
+        morning_energy: details.energy,
+        morning_mood: details.mood,
+        symptoms: details.symptoms.trim() || null,
+        nap_minutes: numOrNull(details.nap),
       };
 
       const { data, error } = await supabase
@@ -286,15 +480,26 @@ export default function SleepClient({
     }
   }
 
-  // Average duration over the last N calendar days.
-  function avgLastDays(days: number): number | null {
+  // Nightly score for each entry (keyed by id).
+  const scores = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const e of entries) {
+      const s = sleepScore(e, entries);
+      if (s) m.set(e.id, s.score);
+    }
+    return m;
+  }, [entries]);
+
+  // Average score over the last N calendar days.
+  function avgScoreLastDays(days: number): number | null {
     const c = new Date();
     c.setDate(c.getDate() - (days - 1));
     const cutoff = localDateStr(c);
-    const ds = entries
-      .filter((e) => e.night_of >= cutoff && e.duration_minutes != null)
-      .map((e) => e.duration_minutes as number);
-    return ds.length ? Math.round(mean(ds)) : null;
+    const ss = entries
+      .filter((e) => e.night_of >= cutoff)
+      .map((e) => scores.get(e.id))
+      .filter((n): n is number => n != null);
+    return ss.length ? Math.round(mean(ss)) : null;
   }
 
   // The last 7 calendar nights (most recent on the right), for the mini chart.
@@ -308,37 +513,34 @@ export default function SleepClient({
     }
     return arr;
   }, [entries]);
-  const maxDur = Math.max(480, ...last7.map((x) => x.entry?.duration_minutes ?? 0));
-
   return (
     <div className="px-4 pt-6">
       <h1 className="mb-4 text-3xl font-bold">Sleep</h1>
 
-      {/* Summary: rolling averages + last 7 nights */}
+      {/* Summary: rolling average sleep score + last 7 nights */}
       <div className="mb-4 grid grid-cols-3 gap-2">
-        <StatTile label="7-day avg" value={fmtDuration(avgLastDays(7))} />
-        <StatTile label="14-day avg" value={fmtDuration(avgLastDays(14))} />
-        <StatTile label="30-day avg" value={fmtDuration(avgLastDays(30))} />
+        <ScoreTile label="7-day score" value={avgScoreLastDays(7)} />
+        <ScoreTile label="14-day score" value={avgScoreLastDays(14)} />
+        <ScoreTile label="30-day score" value={avgScoreLastDays(30)} />
       </div>
       <div className="mb-6 rounded-2xl bg-surface p-4">
-        <div className="mb-3 text-sm text-muted">Last 7 nights</div>
+        <div className="mb-3 text-sm text-muted">
+          Last 7 nights <span className="text-muted/70">(sleep score)</span>
+        </div>
         <div className="flex justify-between gap-2">
           {last7.map((d) => {
-            const mins = d.entry?.duration_minutes ?? 0;
-            const pct = mins ? Math.max(8, (mins / maxDur) * 100) : 0;
-            const hrs = mins ? (mins / 60).toFixed(1) : "";
+            const score = d.entry ? scores.get(d.entry.id) ?? null : null;
+            const pct = score != null ? Math.max(8, score) : 0;
             return (
               <div key={d.ds} className="flex flex-1 flex-col items-center gap-1">
-                <span className="h-3 text-[9px] text-muted">{hrs}</span>
+                <span className="h-3 text-[9px] text-muted">{score ?? ""}</span>
                 <div className="flex h-24 w-full items-end justify-center">
                   <div className="flex h-full w-6 items-end rounded-md bg-surface-2">
-                    {mins > 0 && (
+                    {score != null && (
                       <div
-                        className={`w-full rounded-md ${qualityBg(
-                          d.entry?.quality ?? null
-                        )}`}
+                        className={`w-full rounded-md ${scoreBand(score).bg}`}
                         style={{ height: `${pct}%` }}
-                        title={fmtDuration(mins)}
+                        title={`Score ${score}`}
                       />
                     )}
                   </div>
@@ -429,6 +631,107 @@ export default function SleepClient({
               </div>
               {quality === 5 && <Confetti key={celebrateKey} />}
             </div>
+
+            {/* More details (collapsible) — feeds the sleep score */}
+            <button
+              type="button"
+              onClick={() => setShowDetails((v) => !v)}
+              className="text-sm font-medium text-accent"
+            >
+              {showDetails ? "− Less detail" : "+ More detail"}
+            </button>
+            {showDetails && (
+              <div className="space-y-3 border-t border-hair pt-3">
+                <Row label="Fell asleep in (min)">
+                  <NumField
+                    value={details.latency}
+                    onChange={(v) => patchDetails({ latency: v })}
+                  />
+                </Row>
+                <Row label="Awakenings">
+                  <NumField
+                    value={details.awakenings}
+                    onChange={(v) => patchDetails({ awakenings: v })}
+                  />
+                </Row>
+                <Row label="Awake overnight (min)">
+                  <NumField
+                    value={details.awake}
+                    onChange={(v) => patchDetails({ awake: v })}
+                  />
+                </Row>
+                <div>
+                  <div className="mb-1 text-sm text-muted">Exercise today</div>
+                  <div className="flex flex-wrap gap-2">
+                    {EXERCISE_OPTS.map((opt) => (
+                      <button
+                        key={opt}
+                        onClick={() =>
+                          patchDetails({
+                            exercise: details.exercise === opt ? "" : opt,
+                          })
+                        }
+                        className={`rounded-full px-3 py-1.5 text-sm font-medium capitalize ${
+                          details.exercise === opt
+                            ? "bg-gold text-black"
+                            : "bg-surface-2 text-muted"
+                        }`}
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <Row label="Caffeine after 2 PM">
+                  <YesNo
+                    value={details.caffeinePm}
+                    onChange={(v) => patchDetails({ caffeinePm: v })}
+                  />
+                </Row>
+                <Row label="Alcohol">
+                  <YesNo
+                    value={details.alcohol}
+                    onChange={(v) => patchDetails({ alcohol: v })}
+                  />
+                </Row>
+                <Between label="Stress">
+                  <Scale5
+                    value={details.stress}
+                    onChange={(v) => patchDetails({ stress: v })}
+                  />
+                </Between>
+                <Row label="Room temp (°F)">
+                  <NumField
+                    value={details.roomTemp}
+                    onChange={(v) => patchDetails({ roomTemp: v })}
+                  />
+                </Row>
+                <Between label="Morning energy">
+                  <Scale5
+                    value={details.energy}
+                    onChange={(v) => patchDetails({ energy: v })}
+                  />
+                </Between>
+                <Between label="Morning mood">
+                  <Scale5
+                    value={details.mood}
+                    onChange={(v) => patchDetails({ mood: v })}
+                  />
+                </Between>
+                <Row label="Nap (min)">
+                  <NumField
+                    value={details.nap}
+                    onChange={(v) => patchDetails({ nap: v })}
+                  />
+                </Row>
+                <input
+                  value={details.symptoms}
+                  onChange={(e) => patchDetails({ symptoms: e.target.value })}
+                  placeholder="Symptoms (eye twitching, etc.)"
+                  className="w-full rounded-xl bg-surface-2 px-3 py-2 text-sm outline-none placeholder:text-muted"
+                />
+              </div>
+            )}
 
             {/* Factors */}
             <div className="pt-1">
@@ -549,17 +852,22 @@ export default function SleepClient({
                     </div>
                   )}
                 </div>
-                <div className="ml-3 shrink-0 text-right">
-                  <div className="text-lg text-gold">
-                    {fmtDuration(e.duration_minutes)}
+                <div className="ml-3 flex shrink-0 items-center gap-3 text-right">
+                  <div>
+                    <div className="text-lg text-gold">
+                      {fmtDuration(e.duration_minutes)}
+                    </div>
+                    <div
+                      className={`text-sm ${
+                        e.quality ? QUALITY_META[e.quality].text : "text-muted"
+                      }`}
+                    >
+                      {e.quality ? "★".repeat(e.quality) : ""}
+                    </div>
                   </div>
-                  <div
-                    className={`text-sm ${
-                      e.quality ? QUALITY_META[e.quality].text : "text-muted"
-                    }`}
-                  >
-                    {e.quality ? "★".repeat(e.quality) : ""}
-                  </div>
+                  {scores.get(e.id) != null && (
+                    <ScoreBadge score={scores.get(e.id) as number} />
+                  )}
                 </div>
                 </div>
               </SwipeRow>
