@@ -134,6 +134,21 @@ create index if not exists sleep_user_date_idx
 alter table public.sleep_entries
   add column if not exists tags text[] not null default '{}';
 
+-- Richer sleep fields (feed the nightly sleep score).
+alter table public.sleep_entries
+  add column if not exists latency_minutes integer,   -- minutes to fall asleep
+  add column if not exists awakenings      integer,   -- number of awakenings
+  add column if not exists awake_minutes   integer,   -- total awake time overnight
+  add column if not exists exercise        text,      -- rest|strength|cardio|both
+  add column if not exists caffeine_pm     boolean,   -- caffeine after 2 PM
+  add column if not exists alcohol         boolean,
+  add column if not exists stress          integer,   -- 1..5
+  add column if not exists room_temp       numeric,   -- °F
+  add column if not exists morning_energy  integer,   -- 1..5
+  add column if not exists morning_mood    integer,   -- 1..5
+  add column if not exists symptoms        text,      -- e.g. "eye twitching"
+  add column if not exists nap_minutes     integer;
+
 -- ============================================================================
 --  Row Level Security — every table is locked to the owning auth user
 -- ============================================================================

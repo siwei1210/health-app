@@ -72,5 +72,18 @@ export type SleepEntry = {
   quality: number | null;
   notes: string | null;
   tags: string[];
+  // Richer fields (feed the sleep score)
+  latency_minutes: number | null;
+  awakenings: number | null;
+  awake_minutes: number | null;
+  exercise: string | null; // rest|strength|cardio|both
+  caffeine_pm: boolean | null;
+  alcohol: boolean | null;
+  stress: number | null; // 1..5
+  room_temp: number | null;
+  morning_energy: number | null; // 1..5
+  morning_mood: number | null; // 1..5
+  symptoms: string | null;
+  nap_minutes: number | null;
   created_at: string;
 };
