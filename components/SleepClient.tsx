@@ -11,33 +11,38 @@ import SwipeRow from "./SwipeRow";
 // Extra nightly detail fields (kept in one object to limit boilerplate).
 type Details = {
   latency: string;
-  awakenings: string;
   awake: string;
   exercise: string; // "" | rest | strength | cardio | both
-  caffeinePm: boolean;
   alcohol: boolean;
   stress: number | null;
-  roomTemp: string;
-  energy: number | null;
-  mood: number | null;
-  symptoms: string;
+  roomTemp: string; // "64" | "69" | "75"
+  morning: number | null; // combined energy & mood (1..5)
+  symptoms: string; // "" | headache | eye twitching | both
   nap: string;
 };
 const EMPTY_DETAILS: Details = {
   latency: "",
-  awakenings: "",
   awake: "",
   exercise: "",
-  caffeinePm: false,
   alcohol: false,
   stress: null,
   roomTemp: "",
-  energy: null,
-  mood: null,
+  morning: null,
   symptoms: "",
   nap: "",
 };
 const EXERCISE_OPTS = ["rest", "strength", "cardio", "both"];
+const ROOM_TEMP_OPTS = [
+  { v: "64", label: "Winter 64°" },
+  { v: "69", label: "Mild 69°" },
+  { v: "75", label: "Summer 75°" },
+];
+const SYMPTOM_OPTS = [
+  { v: "", label: "None" },
+  { v: "headache", label: "Headache" },
+  { v: "eye twitching", label: "Eye twitching" },
+  { v: "both", label: "Both" },
+];
 
 // Factors offered by default; the chip list also includes anything you've
 // tagged before, so new factors stick around once used.
@@ -253,14 +258,14 @@ function formatSleepExport(rows: SleepEntry[]): string {
   if (durs.length)
     lines.push(`Average duration: ${fmtDuration(Math.round(mean(durs)))}`);
   lines.push(
-    "Sleep score (0–100): duration 40%, bedtime consistency 20%, wake consistency 15%, quality 15%, interruptions 5%, factors 5%."
+    "Sleep score (0–100): duration 40%, bedtime consistency 20%, wake consistency 15%, quality 15%, symptoms 6%, factors 4%."
   );
   lines.push("");
   lines.push(
-    "| Date | Score | Duration | Quality | Bedtime | Wake | Latency(min) | Awakenings | AwakeMin | Exercise | CaffeinePM | Alcohol | Stress | RoomTemp | Energy | Mood | Nap(min) | Symptoms | Factors | Notes |"
+    "| Date | Score | Duration | Quality | Bedtime | Wake | Latency(min) | AwakeMin | Exercise | Alcohol | Stress | RoomTemp | Morning | Nap(min) | Symptoms | Factors | Notes |"
   );
   lines.push(
-    "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"
+    "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"
   );
   const yn = (b: boolean | null) => (b == null ? "" : b ? "yes" : "no");
   const num = (n: number | null | undefined) => (n == null ? "" : String(n));
@@ -274,12 +279,10 @@ function formatSleepExport(rows: SleepEntry[]): string {
     lines.push(
       `| ${e.night_of} | ${score} | ${dur} | ${q} | ${hhmm(e.bedtime)} | ${hhmm(
         e.wake_time
-      )} | ${num(e.latency_minutes)} | ${num(e.awakenings)} | ${num(
-        e.awake_minutes
-      )} | ${e.exercise ?? ""} | ${yn(e.caffeine_pm)} | ${yn(e.alcohol)} | ${num(
-        e.stress
-      )} | ${num(e.room_temp)} | ${num(e.morning_energy)} | ${num(
-        e.morning_mood
+      )} | ${num(e.latency_minutes)} | ${num(e.awake_minutes)} | ${
+        e.exercise ?? ""
+      } | ${yn(e.alcohol)} | ${num(e.stress)} | ${num(e.room_temp)} | ${num(
+        e.morning_energy
       )} | ${num(e.nap_minutes)} | ${clean(e.symptoms)} | ${factors} | ${clean(
         e.notes
       )} |`
@@ -365,15 +368,12 @@ export default function SleepClient({
       setTags(existing.tags ?? []);
       setDetails({
         latency: existing.latency_minutes?.toString() ?? "",
-        awakenings: existing.awakenings?.toString() ?? "",
         awake: existing.awake_minutes?.toString() ?? "",
         exercise: existing.exercise ?? "",
-        caffeinePm: !!existing.caffeine_pm,
         alcohol: !!existing.alcohol,
         stress: existing.stress ?? null,
         roomTemp: existing.room_temp?.toString() ?? "",
-        energy: existing.morning_energy ?? null,
-        mood: existing.morning_mood ?? null,
+        morning: existing.morning_energy ?? null,
         symptoms: existing.symptoms ?? "",
         nap: existing.nap_minutes?.toString() ?? "",
       });
@@ -447,16 +447,13 @@ export default function SleepClient({
         notes: notes || null,
         tags,
         latency_minutes: numOrNull(details.latency),
-        awakenings: numOrNull(details.awakenings),
         awake_minutes: numOrNull(details.awake),
         exercise: details.exercise || null,
-        caffeine_pm: details.caffeinePm,
         alcohol: details.alcohol,
         stress: details.stress,
         room_temp: numOrNull(details.roomTemp),
-        morning_energy: details.energy,
-        morning_mood: details.mood,
-        symptoms: details.symptoms.trim() || null,
+        morning_energy: details.morning,
+        symptoms: details.symptoms || null,
         nap_minutes: numOrNull(details.nap),
       };
 
@@ -642,16 +639,23 @@ export default function SleepClient({
             </button>
             {showDetails && (
               <div className="space-y-3 border-t border-hair pt-3">
+                <Between label="Symptoms">
+                  <select
+                    value={details.symptoms}
+                    onChange={(e) => patchDetails({ symptoms: e.target.value })}
+                    className="rounded-xl bg-surface-2 px-3 py-2 text-sm outline-none"
+                  >
+                    {SYMPTOM_OPTS.map((o) => (
+                      <option key={o.v} value={o.v}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </Between>
                 <Row label="Fell asleep in (min)">
                   <NumField
                     value={details.latency}
                     onChange={(v) => patchDetails({ latency: v })}
-                  />
-                </Row>
-                <Row label="Awakenings">
-                  <NumField
-                    value={details.awakenings}
-                    onChange={(v) => patchDetails({ awakenings: v })}
                   />
                 </Row>
                 <Row label="Awake overnight (min)">
@@ -682,12 +686,6 @@ export default function SleepClient({
                     ))}
                   </div>
                 </div>
-                <Row label="Caffeine after 2 PM">
-                  <YesNo
-                    value={details.caffeinePm}
-                    onChange={(v) => patchDetails({ caffeinePm: v })}
-                  />
-                </Row>
                 <Row label="Alcohol">
                   <YesNo
                     value={details.alcohol}
@@ -700,36 +698,40 @@ export default function SleepClient({
                     onChange={(v) => patchDetails({ stress: v })}
                   />
                 </Between>
-                <Row label="Room temp (°F)">
-                  <NumField
-                    value={details.roomTemp}
-                    onChange={(v) => patchDetails({ roomTemp: v })}
-                  />
-                </Row>
-                <Between label="Morning energy">
+                <Between label="Morning energy & mood">
                   <Scale5
-                    value={details.energy}
-                    onChange={(v) => patchDetails({ energy: v })}
+                    value={details.morning}
+                    onChange={(v) => patchDetails({ morning: v })}
                   />
                 </Between>
-                <Between label="Morning mood">
-                  <Scale5
-                    value={details.mood}
-                    onChange={(v) => patchDetails({ mood: v })}
-                  />
-                </Between>
+                <div>
+                  <div className="mb-1 text-sm text-muted">Room temp</div>
+                  <div className="flex flex-wrap gap-2">
+                    {ROOM_TEMP_OPTS.map((o) => (
+                      <button
+                        key={o.v}
+                        onClick={() =>
+                          patchDetails({
+                            roomTemp: details.roomTemp === o.v ? "" : o.v,
+                          })
+                        }
+                        className={`rounded-full px-3 py-1.5 text-sm font-medium ${
+                          details.roomTemp === o.v
+                            ? "bg-gold text-black"
+                            : "bg-surface-2 text-muted"
+                        }`}
+                      >
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <Row label="Nap (min)">
                   <NumField
                     value={details.nap}
                     onChange={(v) => patchDetails({ nap: v })}
                   />
                 </Row>
-                <input
-                  value={details.symptoms}
-                  onChange={(e) => patchDetails({ symptoms: e.target.value })}
-                  placeholder="Symptoms (eye twitching, etc.)"
-                  className="w-full rounded-xl bg-surface-2 px-3 py-2 text-sm outline-none placeholder:text-muted"
-                />
               </div>
             )}
 

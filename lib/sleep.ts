@@ -11,7 +11,7 @@ export type ScoreParts = {
   bedtime: number;
   wake: number;
   quality: number;
-  interruptions: number;
+  symptoms: number;
   factors: number;
 };
 
@@ -20,8 +20,8 @@ const WEIGHTS: ScoreParts = {
   bedtime: 0.2,
   wake: 0.15,
   quality: 0.15,
-  interruptions: 0.05,
-  factors: 0.05,
+  symptoms: 0.06,
+  factors: 0.04,
 };
 
 function clamp(n: number): number {
@@ -82,17 +82,18 @@ export function sleepScore(
         ? consistency(localMinutes(entry.wake_time), priorWake)
         : 80,
     quality: entry.quality ? (entry.quality / 5) * 100 : 60,
-    interruptions:
-      entry.awakenings != null
-        ? clamp(100 - entry.awakenings * 18)
-        : entry.awake_minutes != null
-        ? clamp(100 - entry.awake_minutes * 1.5)
-        : 100,
+    symptoms: (() => {
+      const s = (entry.symptoms ?? "").toLowerCase();
+      if (s === "both") return 20;
+      if (s) return 40; // headache or eye twitching
+      return 100;
+    })(),
     factors: (() => {
       let f = 100;
-      if (entry.alcohol) f -= 40;
-      if (entry.caffeine_pm) f -= 30;
-      if (entry.stress != null && entry.stress >= 4) f -= 20;
+      if (entry.alcohol) f -= 50;
+      if (entry.stress != null && entry.stress >= 4) f -= 30;
+      if (entry.awake_minutes != null)
+        f -= Math.min(40, entry.awake_minutes * 1.5);
       return clamp(f);
     })(),
   };
