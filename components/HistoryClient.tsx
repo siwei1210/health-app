@@ -3,7 +3,9 @@
 import { useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatWeight } from "@/lib/logic";
+import { activityType, formatActivityMetric } from "@/lib/activities";
 import { APP_VERSION } from "@/lib/version";
+import type { Activity } from "@/lib/types";
 import ThemeToggle from "./ThemeToggle";
 import CopyButton from "./CopyButton";
 import SwipeRow from "./SwipeRow";
@@ -26,15 +28,22 @@ const DOW = ["S", "M", "T", "W", "T", "F", "S"];
 
 export default function HistoryClient({
   sessions: initialSessions,
+  activities: initialActivities = [],
 }: {
   sessions: SessionSummary[];
+  activities?: Activity[];
 }) {
   const supabase = useMemo(() => createClient(), []);
   const [tab, setTab] = useState<"calendar" | "list">("calendar");
   const [sessions, setSessions] = useState(initialSessions);
+  const [activities, setActivities] = useState(initialActivities);
   const trainedDays = useMemo(
-    () => new Set(sessions.map((s) => s.performed_at)),
-    [sessions]
+    () =>
+      new Set([
+        ...sessions.map((s) => s.performed_at),
+        ...activities.map((a) => a.performed_at),
+      ]),
+    [sessions, activities]
   );
 
   async function deleteSession(id: string) {
@@ -46,6 +55,16 @@ export default function HistoryClient({
       .eq("id", id);
     if (error) {
       setSessions(prev); // roll back
+      alert("Could not delete: " + error.message);
+    }
+  }
+
+  async function deleteActivity(id: string) {
+    const prev = activities;
+    setActivities((a) => a.filter((x) => x.id !== id));
+    const { error } = await supabase.from("activities").delete().eq("id", id);
+    if (error) {
+      setActivities(prev);
       alert("Could not delete: " + error.message);
     }
   }
@@ -86,7 +105,12 @@ export default function HistoryClient({
       {tab === "calendar" ? (
         <Calendars trainedDays={trainedDays} />
       ) : (
-        <SessionList sessions={sessions} onDelete={deleteSession} />
+        <Timeline
+          sessions={sessions}
+          activities={activities}
+          onDeleteSession={deleteSession}
+          onDeleteActivity={deleteActivity}
+        />
       )}
 
       <p className="mt-10 pb-2 text-center text-xs text-muted">
@@ -186,59 +210,113 @@ function MonthGrid({
   );
 }
 
-function SessionList({
+// Merged, date-sorted timeline of strength sessions and activities.
+function Timeline({
   sessions,
-  onDelete,
+  activities,
+  onDeleteSession,
+  onDeleteActivity,
 }: {
   sessions: SessionSummary[];
-  onDelete: (id: string) => void;
+  activities: Activity[];
+  onDeleteSession: (id: string) => void;
+  onDeleteActivity: (id: string) => void;
 }) {
-  if (sessions.length === 0) {
-    return <p className="text-muted">No workouts logged yet.</p>;
+  const items = [
+    ...sessions.map((s) => ({ id: "s-" + s.id, date: s.performed_at, s })),
+    ...activities.map((a) => ({ id: "a-" + a.id, date: a.performed_at, a })),
+  ].sort((x, y) => (x.date < y.date ? 1 : x.date > y.date ? -1 : 0));
+
+  if (items.length === 0) {
+    return <p className="text-muted">Nothing logged yet.</p>;
   }
   return (
     <div className="space-y-3">
-      {sessions.map((s) => (
-        <SwipeRow key={s.id} onDelete={() => onDelete(s.id)}>
-        <div className="bg-surface p-4">
-          <div className="mb-2 flex items-center justify-between">
-            <div className="font-semibold">
-              {new Date(s.performed_at + "T00:00:00").toLocaleDateString(
+      {items.map((it) =>
+        "s" in it ? (
+          <SwipeRow key={it.id} onDelete={() => onDeleteSession(it.s.id)}>
+            <SessionCard s={it.s} />
+          </SwipeRow>
+        ) : (
+          <SwipeRow key={it.id} onDelete={() => onDeleteActivity(it.a.id)}>
+            <ActivityCard a={it.a} />
+          </SwipeRow>
+        )
+      )}
+    </div>
+  );
+}
+
+function SessionCard({ s }: { s: SessionSummary }) {
+  return (
+    <div className="bg-surface p-4">
+      <div className="mb-2 flex items-center justify-between">
+        <div className="font-semibold">
+          {new Date(s.performed_at + "T00:00:00").toLocaleDateString(undefined, {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })}
+          {s.template_name && (
+            <span className="ml-2 rounded-md bg-surface-2 px-2 py-0.5 text-xs text-muted">
+              Workout {s.template_name}
+            </span>
+          )}
+        </div>
+        {s.duration_seconds != null && (
+          <span className="text-sm text-muted">
+            {Math.round(s.duration_seconds / 60)} min
+          </span>
+        )}
+      </div>
+      <div className="space-y-1">
+        {s.exercises.map((e, i) => (
+          <div key={i} className="flex justify-between text-sm">
+            <span className="text-fg/90">{e.name}</span>
+            <span className="text-muted">
+              {e.sets}×{e.reps} {formatWeight(e.weight)}
+            </span>
+          </div>
+        ))}
+      </div>
+      {(s.body_weight || s.notes) && (
+        <div className="mt-2 border-t border-hair pt-2 text-sm text-muted">
+          {s.body_weight ? `BW ${formatWeight(s.body_weight)}` : ""}
+          {s.body_weight && s.notes ? " · " : ""}
+          {s.notes ?? ""}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ActivityCard({ a }: { a: Activity }) {
+  const t = activityType(a.type);
+  return (
+    <div className="bg-surface p-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">{t.emoji}</span>
+          <div>
+            <div className="font-semibold">{t.label}</div>
+            <div className="text-sm text-muted">
+              {new Date(a.performed_at + "T00:00:00").toLocaleDateString(
                 undefined,
                 { weekday: "short", month: "short", day: "numeric", year: "numeric" }
               )}
-              {s.template_name && (
-                <span className="ml-2 rounded-md bg-surface-2 px-2 py-0.5 text-xs text-muted">
-                  Workout {s.template_name}
-                </span>
-              )}
             </div>
-            {s.duration_seconds != null && (
-              <span className="text-sm text-muted">
-                {Math.round(s.duration_seconds / 60)} min
-              </span>
-            )}
           </div>
-          <div className="space-y-1">
-            {s.exercises.map((e, i) => (
-              <div key={i} className="flex justify-between text-sm">
-                <span className="text-fg/90">{e.name}</span>
-                <span className="text-muted">
-                  {e.sets}×{e.reps} {formatWeight(e.weight)}
-                </span>
-              </div>
-            ))}
-          </div>
-          {(s.body_weight || s.notes) && (
-            <div className="mt-2 border-t border-hair pt-2 text-sm text-muted">
-              {s.body_weight ? `BW ${formatWeight(s.body_weight)}` : ""}
-              {s.body_weight && s.notes ? " · " : ""}
-              {s.notes ?? ""}
-            </div>
-          )}
         </div>
-        </SwipeRow>
-      ))}
+        <span className="text-lg font-semibold text-gold">
+          {formatActivityMetric(a)}
+        </span>
+      </div>
+      {a.notes && (
+        <div className="mt-2 whitespace-pre-wrap break-words border-t border-hair pt-2 text-sm text-muted">
+          {a.notes}
+        </div>
+      )}
     </div>
   );
 }

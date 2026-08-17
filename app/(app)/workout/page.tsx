@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
-import WorkoutClient, { type TemplateWithExercises } from "@/components/WorkoutClient";
+import WorkoutTabs from "@/components/WorkoutTabs";
+import { type TemplateWithExercises } from "@/components/WorkoutClient";
 import { seedProgram } from "@/lib/seed";
-import type { Exercise } from "@/lib/types";
+import type { Activity, Exercise } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ export default async function WorkoutPage() {
     // Non-fatal: the empty state below covers a failed seed.
   }
 
-  const [{ data: templates }, { data: tplEx }, { data: lastSession }] =
+  const [{ data: templates }, { data: tplEx }, { data: lastSession }, { data: acts }] =
     await Promise.all([
       supabase
         .from("workout_templates")
@@ -37,6 +38,11 @@ export default async function WorkoutPage() {
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
+      supabase
+        .from("activities")
+        .select("*")
+        .order("performed_at", { ascending: false })
+        .limit(50),
     ]);
 
   const built: TemplateWithExercises[] = (templates ?? []).map((t) => ({
@@ -56,10 +62,11 @@ export default async function WorkoutPage() {
   }
 
   return (
-    <WorkoutClient
+    <WorkoutTabs
       templates={built}
       startIndex={startIndex}
       unit="lb"
+      initialActivities={(acts as Activity[]) ?? []}
     />
   );
 }

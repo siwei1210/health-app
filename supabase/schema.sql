@@ -149,9 +149,31 @@ alter table public.sleep_entries
   add column if not exists symptoms        text,      -- e.g. "eye twitching"
   add column if not exists nap_minutes     integer;
 
+-- ----------------------------------------------------------------------------
+--  activities — general training log (cardio, holds, recovery, etc.)
+-- ----------------------------------------------------------------------------
+create table if not exists public.activities (
+  id               uuid primary key default gen_random_uuid(),
+  user_id          uuid not null references auth.users (id) on delete cascade,
+  performed_at     date not null,
+  type             text not null,       -- row|walk|dead_hang|stretch|cardio|other
+  duration_seconds integer,             -- minutes*60, or hold seconds
+  distance         numeric,             -- optional
+  sets             integer,             -- optional (holds)
+  notes            text,
+  created_at       timestamptz not null default now()
+);
+create index if not exists activities_user_date_idx
+  on public.activities (user_id, performed_at desc);
+
 -- ============================================================================
 --  Row Level Security — every table is locked to the owning auth user
 -- ============================================================================
+alter table public.activities enable row level security;
+drop policy if exists "own activities" on public.activities;
+create policy "own activities" on public.activities
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
 alter table public.profiles            enable row level security;
 alter table public.exercises           enable row level security;
 alter table public.workout_templates   enable row level security;
