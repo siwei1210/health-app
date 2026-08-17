@@ -266,7 +266,7 @@ export default function WorkoutClient({
   const finishAt = (started ? startTime! : Date.now()) + estMinutes * 60000;
 
   return (
-    <div className="px-4 pt-6">
+    <div className="px-4 pt-3">
       {/* Header: workout selector */}
       <div className="mb-6 flex items-center justify-center gap-2">
         <select
