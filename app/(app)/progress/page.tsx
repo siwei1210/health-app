@@ -1,18 +1,25 @@
 import { createClient } from "@/lib/supabase/server";
-import ProgressClient, { type ExercisePoint } from "@/components/ProgressClient";
+import ProgressClient, {
+  type ExercisePoint,
+  type ActivityPoint,
+} from "@/components/ProgressClient";
 import { e1rm } from "@/lib/logic";
+import { activityType } from "@/lib/activities";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProgressPage() {
   const supabase = await createClient();
 
-  const { data } = await supabase
-    .from("session_exercises")
-    .select(
-      "exercise_name, weight, workout_sessions!inner(performed_at), session_sets(reps, completed)"
-    )
-    .order("exercise_name");
+  const [{ data }, { data: acts }] = await Promise.all([
+    supabase
+      .from("session_exercises")
+      .select(
+        "exercise_name, weight, workout_sessions!inner(performed_at), session_sets(reps, completed)"
+      )
+      .order("exercise_name"),
+    supabase.from("activities").select("*").order("performed_at"),
+  ]);
 
   // Flatten into per-exercise, per-day points.
   const byExercise: Record<string, ExercisePoint[]> = {};
@@ -35,5 +42,20 @@ export default async function ProgressPage() {
     byExercise[name].sort((a, b) => (a.date < b.date ? -1 : 1));
   }
 
-  return <ProgressClient data={byExercise} />;
+  // Activities → per-type points (minutes for cardio, seconds for holds).
+  const byActivity: Record<string, ActivityPoint[]> = {};
+  for (const a of (acts as any[]) ?? []) {
+    if (a.duration_seconds == null) continue;
+    const def = activityType(a.type);
+    const value =
+      def.metric === "hold"
+        ? Number(a.duration_seconds)
+        : Math.round(Number(a.duration_seconds) / 60);
+    (byActivity[a.type] ??= []).push({ date: a.performed_at, value });
+  }
+  for (const t of Object.keys(byActivity)) {
+    byActivity[t].sort((a, b) => (a.date < b.date ? -1 : 1));
+  }
+
+  return <ProgressClient data={byExercise} activityData={byActivity} />;
 }
