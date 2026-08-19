@@ -48,6 +48,8 @@ export default function WorkoutClient({
   const [log, setLog] = useState<Log>({});
   const [notes, setNotes] = useState("");
   const [showNotes, setShowNotes] = useState(false);
+  // Date the workout is FOR (default today; change it to backfill a past day).
+  const [sessionDate, setSessionDate] = useState(localDateStr());
   const [editing, setEditing] = useState<Exercise | null>(null);
   const [saving, setSaving] = useState(false);
   // Timestamp of the last logged set — drives the rest timer (persisted so it
@@ -65,7 +67,7 @@ export default function WorkoutClient({
   }, [startTime]);
 
   // Restore an in-progress workout on mount (survives tab switches / reloads).
-  // Ignores stale sessions older than 12h.
+  // Ignores stale sessions older than 36h.
   useEffect(() => {
     try {
       const raw = localStorage.getItem(ACTIVE_KEY);
@@ -73,7 +75,7 @@ export default function WorkoutClient({
       const s = JSON.parse(raw);
       if (
         typeof s.startTime !== "number" ||
-        Date.now() - s.startTime > 12 * 3600 * 1000
+        Date.now() - s.startTime > 36 * 3600 * 1000
       ) {
         localStorage.removeItem(ACTIVE_KEY);
         return;
@@ -186,7 +188,7 @@ export default function WorkoutClient({
           user_id: user.id,
           template_id: template.id,
           template_name: template.name,
-          performed_at: localDateStr(),
+          performed_at: sessionDate,
           body_weight: null,
           notes: notes || null,
           duration_seconds: duration,
@@ -267,7 +269,7 @@ export default function WorkoutClient({
 
   return (
     <div className="px-4 pt-3">
-      {/* Header: workout selector */}
+      {/* Header: workout selector + date */}
       <div className="mb-6 flex items-center justify-center gap-2">
         <select
           value={tplIndex}
@@ -280,6 +282,16 @@ export default function WorkoutClient({
             </option>
           ))}
         </select>
+        <input
+          type="date"
+          value={sessionDate}
+          max={localDateStr()}
+          onChange={(e) => setSessionDate(e.target.value)}
+          aria-label="Workout date"
+          className={`rounded-full bg-surface px-3 py-2 text-sm outline-none ${
+            sessionDate !== localDateStr() ? "text-accent" : "text-muted"
+          }`}
+        />
       </div>
 
       {/* Exercises */}
