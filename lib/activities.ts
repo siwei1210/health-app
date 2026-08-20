@@ -8,15 +8,19 @@ export type ActivityTypeDef = {
   label: string;
   emoji: string;
   metric: ActivityMetric;
+  color: string; // accent used in History / charts
 };
 
+// Strength (5x5) accent, used alongside the activity colors.
+export const STRENGTH_COLOR = "#ff3b30"; // red
+
 export const ACTIVITY_TYPES: ActivityTypeDef[] = [
-  { key: "row", label: "Row", emoji: "🚣", metric: "duration" },
-  { key: "walk", label: "Walk / Recovery", emoji: "🚶", metric: "duration" },
-  { key: "dead_hang", label: "Dead hang", emoji: "🧗", metric: "hold" },
-  { key: "stretch", label: "Stretch / Mobility", emoji: "🧘", metric: "duration" },
-  { key: "cardio", label: "Cardio", emoji: "🏃", metric: "duration" },
-  { key: "other", label: "Other", emoji: "⭐", metric: "duration" },
+  { key: "row", label: "Row", emoji: "🚣", metric: "duration", color: "#ff9500" }, // orange
+  { key: "walk", label: "Walk / Recovery", emoji: "🚶", metric: "duration", color: "#0a84ff" }, // blue
+  { key: "dead_hang", label: "Dead hang", emoji: "🧗", metric: "hold", color: "#34c759" }, // green
+  { key: "stretch", label: "Stretch / Mobility", emoji: "🧘", metric: "duration", color: "#5ac8fa" }, // teal
+  { key: "cardio", label: "Cardio", emoji: "🚴", metric: "duration", color: "#af52de" }, // purple
+  { key: "other", label: "Other", emoji: "⭐", metric: "duration", color: "#8e8e93" }, // gray
 ];
 
 export function activityType(key: string): ActivityTypeDef {
@@ -26,6 +30,7 @@ export function activityType(key: string): ActivityTypeDef {
       label: key,
       emoji: "•",
       metric: "duration",
+      color: "#8e8e93",
     }
   );
 }
