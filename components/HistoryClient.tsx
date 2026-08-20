@@ -205,23 +205,29 @@ function MonthGrid({
             day
           ).padStart(2, "0")}`;
           const colors = dayColors.get(ds) ?? [];
+          // Solid fill for one type; a pie split for multiple types.
+          const bg =
+            colors.length === 0
+              ? undefined
+              : colors.length === 1
+              ? colors[0]
+              : `conic-gradient(${colors
+                  .map(
+                    (c, j) =>
+                      `${c} ${(360 / colors.length) * j}deg ${
+                        (360 / colors.length) * (j + 1)
+                      }deg`
+                  )
+                  .join(", ")})`;
           return (
-            <div key={i} className="flex flex-col items-center">
+            <div key={i} className="flex justify-center">
               <div
-                className={`flex h-8 w-8 items-center justify-center rounded-full text-sm ${
-                  colors.length ? "font-semibold text-fg" : "text-fg/90"
+                className={`flex h-9 w-9 items-center justify-center rounded-full text-sm ${
+                  colors.length ? "font-semibold text-white" : "text-fg/90"
                 }`}
+                style={colors.length ? { background: bg } : undefined}
               >
                 {day}
-              </div>
-              <div className="flex h-1.5 items-center gap-0.5">
-                {colors.slice(0, 4).map((c, j) => (
-                  <span
-                    key={j}
-                    className="h-1.5 w-1.5 rounded-full"
-                    style={{ backgroundColor: c }}
-                  />
-                ))}
               </div>
             </div>
           );
