@@ -43,8 +43,6 @@ function withinRange<T extends { date: string }>(all: T[], range: Range): T[] {
   return all.filter((p) => new Date(p.date + "T00:00:00").getTime() >= cutoff);
 }
 
-const ACTIVITY_COLOR = "#ffb02e";
-
 export default function ProgressClient({
   data,
   activityData = {},
@@ -310,17 +308,14 @@ function ActivityProgress({
         })}
       </div>
 
-      <div
-        className="mb-1 text-3xl font-bold"
-        style={{ color: ACTIVITY_COLOR }}
-      >
+      <div className="mb-1 text-3xl font-bold" style={{ color: def.color }}>
         {latest ? fmt(latest.value) : "—"}
       </div>
       <div className="mb-4 text-sm text-muted">
         {latest ? dateLabel(latest.date) : "No data in range"}
       </div>
 
-      <Chart points={points} color={ACTIVITY_COLOR} format={fmt} label={label} />
+      <Chart points={points} color={def.color} format={fmt} label={label} />
       <RangeSelector range={range} setRange={setRange} />
     </>
   );
