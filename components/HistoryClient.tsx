@@ -41,14 +41,18 @@ export default function HistoryClient({
   const [tab, setTab] = useState<"calendar" | "list">("calendar");
   const [sessions, setSessions] = useState(initialSessions);
   const [activities, setActivities] = useState(initialActivities);
-  const trainedDays = useMemo(
-    () =>
-      new Set([
-        ...sessions.map((s) => s.performed_at),
-        ...activities.map((a) => a.performed_at),
-      ]),
-    [sessions, activities]
-  );
+  // Distinct type colors per day, for the calendar dots.
+  const dayColors = useMemo(() => {
+    const m = new Map<string, string[]>();
+    const add = (date: string, color: string) => {
+      const arr = m.get(date) ?? [];
+      if (!arr.includes(color)) arr.push(color);
+      m.set(date, arr);
+    };
+    for (const s of sessions) add(s.performed_at, STRENGTH_COLOR);
+    for (const a of activities) add(a.performed_at, activityType(a.type).color);
+    return m;
+  }, [sessions, activities]);
 
   async function deleteSession(id: string) {
     const prev = sessions;
@@ -107,7 +111,7 @@ export default function HistoryClient({
       </div>
 
       {tab === "calendar" ? (
-        <Calendars trainedDays={trainedDays} />
+        <Calendars dayColors={dayColors} />
       ) : (
         <Timeline
           sessions={sessions}
@@ -148,7 +152,7 @@ function formatWorkoutExport(sessions: SessionSummary[]): string {
   return lines.join("\n");
 }
 
-function Calendars({ trainedDays }: { trainedDays: Set<string> }) {
+function Calendars({ dayColors }: { dayColors: Map<string, string[]> }) {
   // Show the current month and the previous two.
   const now = new Date();
   const months = [0, 1, 2].map(
@@ -158,7 +162,11 @@ function Calendars({ trainedDays }: { trainedDays: Set<string> }) {
   return (
     <div className="space-y-8">
       {months.map((m) => (
-        <MonthGrid key={`${m.getFullYear()}-${m.getMonth()}`} month={m} trainedDays={trainedDays} />
+        <MonthGrid
+          key={`${m.getFullYear()}-${m.getMonth()}`}
+          month={m}
+          dayColors={dayColors}
+        />
       ))}
     </div>
   );
@@ -166,10 +174,10 @@ function Calendars({ trainedDays }: { trainedDays: Set<string> }) {
 
 function MonthGrid({
   month,
-  trainedDays,
+  dayColors,
 }: {
   month: Date;
-  trainedDays: Set<string>;
+  dayColors: Map<string, string[]>;
 }) {
   const year = month.getFullYear();
   const mon = month.getMonth();
@@ -196,15 +204,24 @@ function MonthGrid({
           const ds = `${year}-${String(mon + 1).padStart(2, "0")}-${String(
             day
           ).padStart(2, "0")}`;
-          const trained = trainedDays.has(ds);
+          const colors = dayColors.get(ds) ?? [];
           return (
-            <div key={i} className="flex justify-center">
+            <div key={i} className="flex flex-col items-center">
               <div
-                className={`flex h-9 w-9 items-center justify-center rounded-full text-sm ${
-                  trained ? "bg-accent font-semibold text-white" : "text-fg/90"
+                className={`flex h-8 w-8 items-center justify-center rounded-full text-sm ${
+                  colors.length ? "font-semibold text-fg" : "text-fg/90"
                 }`}
               >
                 {day}
+              </div>
+              <div className="flex h-1.5 items-center gap-0.5">
+                {colors.slice(0, 4).map((c, j) => (
+                  <span
+                    key={j}
+                    className="h-1.5 w-1.5 rounded-full"
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
               </div>
             </div>
           );
