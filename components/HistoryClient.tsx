@@ -3,7 +3,11 @@
 import { useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatWeight } from "@/lib/logic";
-import { activityType, formatActivityMetric } from "@/lib/activities";
+import {
+  activityType,
+  formatActivityMetric,
+  STRENGTH_COLOR,
+} from "@/lib/activities";
 import { APP_VERSION } from "@/lib/version";
 import type { Activity } from "@/lib/types";
 import ThemeToggle from "./ThemeToggle";
@@ -249,7 +253,10 @@ function Timeline({
 
 function SessionCard({ s }: { s: SessionSummary }) {
   return (
-    <div className="bg-surface p-4">
+    <div
+      className="border-l-4 bg-surface p-4"
+      style={{ borderLeftColor: STRENGTH_COLOR }}
+    >
       <div className="mb-2 flex items-center justify-between">
         <div className="font-semibold">
           {new Date(s.performed_at + "T00:00:00").toLocaleDateString(undefined, {
@@ -294,7 +301,10 @@ function SessionCard({ s }: { s: SessionSummary }) {
 function ActivityCard({ a }: { a: Activity }) {
   const t = activityType(a.type);
   return (
-    <div className="bg-surface p-4">
+    <div
+      className="border-l-4 bg-surface p-4"
+      style={{ borderLeftColor: t.color }}
+    >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <span className="text-2xl">{t.emoji}</span>
