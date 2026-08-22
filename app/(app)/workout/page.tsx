@@ -21,29 +21,53 @@ export default async function WorkoutPage() {
     // Non-fatal: the empty state below covers a failed seed.
   }
 
-  const [{ data: templates }, { data: tplEx }, { data: lastSession }, { data: acts }] =
-    await Promise.all([
-      supabase
-        .from("workout_templates")
-        .select("*")
-        .order("sort_order"),
-      supabase
-        .from("template_exercises")
-        .select("*, exercises(*)")
-        .order("sort_order"),
-      supabase
-        .from("workout_sessions")
-        .select("template_name, performed_at")
-        .order("performed_at", { ascending: false })
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      supabase
-        .from("activities")
-        .select("*")
-        .order("performed_at", { ascending: false })
-        .limit(50),
-    ]);
+  const [
+    { data: templates },
+    { data: tplEx },
+    { data: lastSession },
+    { data: acts },
+    { data: recentSessions },
+  ] = await Promise.all([
+    supabase.from("workout_templates").select("*").order("sort_order"),
+    supabase
+      .from("template_exercises")
+      .select("*, exercises(*)")
+      .order("sort_order"),
+    supabase
+      .from("workout_sessions")
+      .select("template_name, performed_at")
+      .order("performed_at", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("activities")
+      .select("*")
+      .order("performed_at", { ascending: false })
+      .limit(50),
+    supabase
+      .from("workout_sessions")
+      .select("template_name, duration_seconds")
+      .not("duration_seconds", "is", null)
+      .order("performed_at", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(30),
+  ]);
+
+  // Average of recent actual durations per template (last 5 each) — powers the
+  // finish-time estimate.
+  const durLists: Record<string, number[]> = {};
+  for (const s of (recentSessions as any[]) ?? []) {
+    if (s.duration_seconds == null) continue;
+    (durLists[s.template_name ?? ""] ??= []).push(Number(s.duration_seconds));
+  }
+  const avgDurationByTemplate: Record<string, number> = {};
+  for (const [name, list] of Object.entries(durLists)) {
+    const recent = list.slice(0, 5);
+    avgDurationByTemplate[name] = Math.round(
+      recent.reduce((a, b) => a + b, 0) / recent.length
+    );
+  }
 
   const built: TemplateWithExercises[] = (templates ?? []).map((t) => ({
     id: t.id,
@@ -67,6 +91,7 @@ export default async function WorkoutPage() {
       startIndex={startIndex}
       unit="lb"
       initialActivities={(acts as Activity[]) ?? []}
+      avgDurationByTemplate={avgDurationByTemplate}
     />
   );
 }
