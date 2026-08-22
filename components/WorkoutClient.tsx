@@ -30,10 +30,13 @@ export default function WorkoutClient({
   templates,
   startIndex,
   unit,
+  avgDurationByTemplate = {},
 }: {
   templates: TemplateWithExercises[];
   startIndex: number;
   unit: string;
+  // Average of recent actual durations (seconds) per template name.
+  avgDurationByTemplate?: Record<string, number>;
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -255,17 +258,42 @@ export default function WorkoutClient({
     0
   );
 
-  // Rough estimate: ~3.5 min per work set (lift + rest).
   const totalSets = template.exercises.reduce(
     (n, e) => n + (exMap[e.id]?.sets ?? e.sets),
     0
   );
-  const estMinutes = Math.max(10, Math.round(totalSets * 3.5));
   const started = startTime != null;
   const elapsedSec = started ? Math.floor((nowTick - startTime!) / 1000) : 0;
   const em = Math.floor(elapsedSec / 60);
   const es = String(elapsedSec % 60).padStart(2, "0");
-  const finishAt = (started ? startTime! : Date.now()) + estMinutes * 60000;
+
+  // Base estimate (seconds): your recent actual duration for this workout if
+  // available, else a rest-based model (each set = reps execution + rest).
+  const baseEstSec = (() => {
+    const hist = avgDurationByTemplate[template.name];
+    if (hist && hist > 0) return hist;
+    const REST = 180; // ~3 min between heavy sets
+    let sec = 0;
+    for (const e of template.exercises) {
+      const ex = exMap[e.id] ?? e;
+      sec += ex.sets * (ex.reps * 3 + REST);
+    }
+    return sec;
+  })();
+
+  // Once a couple sets are in, blend the base estimate with this session's
+  // actual pace so the finish time adapts to how today is actually going.
+  const projectedSec = (() => {
+    if (!started) return baseEstSec;
+    if (loggedCount >= 2 && totalSets > 0) {
+      const projected = (elapsedSec / loggedCount) * totalSets;
+      return Math.round((projected + baseEstSec) / 2);
+    }
+    return Math.max(baseEstSec, elapsedSec);
+  })();
+
+  const estMinutes = Math.max(1, Math.round(projectedSec / 60));
+  const finishAt = (started ? startTime! : Date.now()) + projectedSec * 1000;
 
   return (
     <div className="px-4 pt-3">
