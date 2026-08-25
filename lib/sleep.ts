@@ -1,9 +1,10 @@
 import type { SleepEntry } from "./types";
 
 // Nightly sleep score (0–100) combining several signals with fixed weights:
-//   Duration 50% · Quality 25% · Bedtime consistency 8% ·
-//   Wake consistency 7% · Symptoms 6% · Factors (hygiene) 4%
-// Duration and how rested you felt (quality) dominate; consistency nudges.
+//   Duration 56% · Quality 30% · Bedtime consistency 2% ·
+//   Wake consistency 2% · Symptoms 6% · Factors (hygiene) 4%
+// Duration and how rested you felt (quality) dominate; consistency is only a
+// tiebreaker between otherwise-identical nights.
 // Consistency compares the night to your rolling average; until there are a
 // few prior nights it uses a neutral value so new users aren't penalized.
 
@@ -17,10 +18,10 @@ export type ScoreParts = {
 };
 
 const WEIGHTS: ScoreParts = {
-  duration: 0.5,
-  bedtime: 0.08,
-  wake: 0.07,
-  quality: 0.25,
+  duration: 0.56,
+  bedtime: 0.02,
+  wake: 0.02,
+  quality: 0.3,
   symptoms: 0.06,
   factors: 0.04,
 };
