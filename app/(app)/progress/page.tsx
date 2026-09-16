@@ -42,15 +42,23 @@ export default async function ProgressPage() {
     byExercise[name].sort((a, b) => (a.date < b.date ? -1 : 1));
   }
 
-  // Activities → per-type points (minutes for cardio, seconds for holds).
+  // Activities → per-type points (minutes for cardio, seconds for holds,
+  // total reps for rep-based activities like pull ups).
   const byActivity: Record<string, ActivityPoint[]> = {};
   for (const a of (acts as any[]) ?? []) {
-    if (a.duration_seconds == null) continue;
     const def = activityType(a.type);
-    const value =
-      def.metric === "hold"
-        ? Number(a.duration_seconds)
-        : Math.round(Number(a.duration_seconds) / 60);
+    let value: number;
+    if (def.metric === "reps") {
+      const total = Number(a.sets ?? 0) * Number(a.reps ?? 0);
+      if (!total) continue;
+      value = total;
+    } else {
+      if (a.duration_seconds == null) continue;
+      value =
+        def.metric === "hold"
+          ? Number(a.duration_seconds)
+          : Math.round(Number(a.duration_seconds) / 60);
+    }
     (byActivity[a.type] ??= []).push({ date: a.performed_at, value });
   }
   for (const t of Object.keys(byActivity)) {

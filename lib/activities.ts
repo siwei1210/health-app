@@ -1,7 +1,7 @@
 // Activity types for the general training log. `metric` decides which input
 // the logger shows: "duration" = minutes (cardio/recovery), "hold" = seconds
-// with optional sets (e.g. dead hang).
-export type ActivityMetric = "duration" | "hold";
+// with optional sets (e.g. dead hang), "reps" = sets × reps (e.g. pull ups).
+export type ActivityMetric = "duration" | "hold" | "reps";
 
 export type ActivityTypeDef = {
   key: string;
@@ -20,7 +20,7 @@ export const ACTIVITY_TYPES: ActivityTypeDef[] = [
   { key: "dead_hang", label: "Dead hang", emoji: "🧗", metric: "hold", color: "#0a84ff" }, // blue
   { key: "stretch", label: "Stretch / Mobility", emoji: "🧘", metric: "duration", color: "#5ac8fa" }, // teal
   { key: "cardio", label: "Cardio", emoji: "🚴", metric: "duration", color: "#af52de" }, // purple
-  { key: "other", label: "Other", emoji: "⭐", metric: "duration", color: "#8e8e93" }, // gray
+  { key: "pull_up", label: "Pull up", emoji: "💪", metric: "reps", color: "#5856d6" }, // indigo
 ];
 
 export function activityType(key: string): ActivityTypeDef {
@@ -35,14 +35,21 @@ export function activityType(key: string): ActivityTypeDef {
   );
 }
 
-// Human-readable primary metric, e.g. "10 min" or "3×30s".
+// Human-readable primary metric, e.g. "10 min", "3×30s", or "3×10".
 export function formatActivityMetric(a: {
   type: string;
   duration_seconds: number | null;
   sets: number | null;
+  reps?: number | null;
 }): string {
-  if (a.duration_seconds == null) return "";
   const t = activityType(a.type);
+  if (t.metric === "reps") {
+    if (a.sets != null && a.reps != null) return `${a.sets}×${a.reps}`;
+    if (a.reps != null) return `${a.reps} reps`;
+    if (a.sets != null) return `${a.sets} sets`;
+    return "";
+  }
+  if (a.duration_seconds == null) return "";
   if (t.metric === "hold") {
     const s = a.duration_seconds;
     const base = s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s}s`;

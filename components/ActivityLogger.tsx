@@ -24,6 +24,7 @@ export default function ActivityLogger({
   const [minutes, setMinutes] = useState("");
   const [seconds, setSeconds] = useState("");
   const [sets, setSets] = useState("");
+  const [reps, setReps] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -33,6 +34,7 @@ export default function ActivityLogger({
     setMinutes("");
     setSeconds("");
     setSets("");
+    setReps("");
     setNotes("");
   }
 
@@ -47,7 +49,9 @@ export default function ActivityLogger({
       const num = (s: string) =>
         s.trim() === "" || Number.isNaN(Number(s)) ? null : Number(s);
       const duration_seconds =
-        def.metric === "hold"
+        def.metric === "reps"
+          ? null
+          : def.metric === "hold"
           ? num(seconds)
           : minutes.trim() === ""
           ? null
@@ -59,7 +63,8 @@ export default function ActivityLogger({
         type,
         duration_seconds,
         distance: null,
-        sets: def.metric === "hold" ? num(sets) : null,
+        sets: def.metric === "hold" || def.metric === "reps" ? num(sets) : null,
+        reps: def.metric === "reps" ? num(reps) : null,
         notes: notes.trim() || null,
       };
 
@@ -126,7 +131,7 @@ export default function ActivityLogger({
           />
         </div>
 
-        {def.metric === "duration" ? (
+        {def.metric === "duration" && (
           <div>
             <div className="flex items-center justify-between">
               <span className="text-lg">Minutes</span>
@@ -155,7 +160,9 @@ export default function ActivityLogger({
               ))}
             </div>
           </div>
-        ) : (
+        )}
+
+        {def.metric === "hold" && (
           <>
             <div className="flex items-center justify-between">
               <span className="text-lg">Hold (seconds)</span>
@@ -178,6 +185,67 @@ export default function ActivityLogger({
                 placeholder="—"
                 className="w-24 bg-transparent text-right text-lg outline-none placeholder:text-muted"
               />
+            </div>
+          </>
+        )}
+
+        {def.metric === "reps" && (
+          <>
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-lg">Sets</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={sets}
+                  onChange={(e) => setSets(e.target.value)}
+                  placeholder="—"
+                  className="w-24 bg-transparent text-right text-lg outline-none placeholder:text-muted"
+                />
+              </div>
+              <div className="mt-2 flex gap-2">
+                {[2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setSets(String(n))}
+                    className={`flex-1 rounded-xl py-2 text-sm font-medium ${
+                      sets === String(n)
+                        ? "bg-gold text-black"
+                        : "bg-surface-2 text-muted"
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-lg">Reps per set</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={reps}
+                  onChange={(e) => setReps(e.target.value)}
+                  placeholder="—"
+                  className="w-24 bg-transparent text-right text-lg outline-none placeholder:text-muted"
+                />
+              </div>
+              <div className="mt-2 flex gap-2">
+                {[5, 8, 10, 12].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setReps(String(n))}
+                    className={`flex-1 rounded-xl py-2 text-sm font-medium ${
+                      reps === String(n)
+                        ? "bg-gold text-black"
+                        : "bg-surface-2 text-muted"
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
             </div>
           </>
         )}

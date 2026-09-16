@@ -156,10 +156,11 @@ create table if not exists public.activities (
   id               uuid primary key default gen_random_uuid(),
   user_id          uuid not null references auth.users (id) on delete cascade,
   performed_at     date not null,
-  type             text not null,       -- row|walk|dead_hang|stretch|cardio|other
+  type             text not null,       -- row|walk|dead_hang|stretch|cardio|pull_up
   duration_seconds integer,             -- minutes*60, or hold seconds
   distance         numeric,             -- optional
-  sets             integer,             -- optional (holds)
+  sets             integer,             -- optional (holds, reps)
+  reps             integer,             -- optional (reps per set, e.g. pull ups)
   notes            text,
   created_at       timestamptz not null default now()
 );
