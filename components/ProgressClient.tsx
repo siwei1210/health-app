@@ -285,7 +285,8 @@ function ActivityProgress({
 
   const def = activityType(type);
   const fmt = (v: number) => formatActivityValue(v, def.metric);
-  const label = def.metric === "hold" ? "Hold" : "Minutes";
+  const label =
+    def.metric === "hold" ? "Hold" : def.metric === "reps" ? "Total reps" : "Minutes";
   const latest = points.length ? points[points.length - 1] : null;
 
   return (
@@ -335,9 +336,13 @@ function formatMetric(v: number, metric: Metric): string {
   return `${Number.isInteger(v) ? v : v.toFixed(1)}lb`;
 }
 
-function formatActivityValue(v: number, metric: "duration" | "hold"): string {
+function formatActivityValue(
+  v: number,
+  metric: "duration" | "hold" | "reps"
+): string {
   if (metric === "hold") {
     return v >= 60 ? `${Math.floor(v / 60)}m ${v % 60}s` : `${v}s`;
   }
+  if (metric === "reps") return `${v} reps`;
   return `${v} min`;
 }

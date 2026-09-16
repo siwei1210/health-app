@@ -4,10 +4,11 @@ export type Activity = {
   id: string;
   user_id: string;
   performed_at: string; // date
-  type: string; // row | walk | dead_hang | stretch | cardio | other
+  type: string; // row | walk | dead_hang | stretch | cardio | pull_up
   duration_seconds: number | null;
   distance: number | null;
   sets: number | null;
+  reps: number | null;
   notes: string | null;
   created_at: string;
 };
