@@ -191,61 +191,35 @@ export default function ActivityLogger({
 
         {def.metric === "reps" && (
           <>
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-lg">Sets</span>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  value={sets}
-                  onChange={(e) => setSets(e.target.value)}
-                  placeholder="—"
-                  className="w-24 bg-transparent text-right text-lg outline-none placeholder:text-muted"
-                />
-              </div>
-              <div className="mt-2 flex gap-2">
-                {[2, 3, 4, 5].map((n) => (
-                  <button
-                    key={n}
-                    onClick={() => setSets(String(n))}
-                    className={`flex-1 rounded-xl py-2 text-sm font-medium ${
-                      sets === String(n)
-                        ? "bg-gold text-black"
-                        : "bg-surface-2 text-muted"
-                    }`}
-                  >
+            <div className="flex items-center justify-between">
+              <span className="text-lg">Sets</span>
+              <select
+                value={sets}
+                onChange={(e) => setSets(e.target.value)}
+                className="w-24 bg-transparent text-right text-lg outline-none"
+              >
+                <option value="">—</option>
+                {[1, 2, 3].map((n) => (
+                  <option key={n} value={n}>
                     {n}
-                  </button>
+                  </option>
                 ))}
-              </div>
+              </select>
             </div>
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-lg">Reps per set</span>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  value={reps}
-                  onChange={(e) => setReps(e.target.value)}
-                  placeholder="—"
-                  className="w-24 bg-transparent text-right text-lg outline-none placeholder:text-muted"
-                />
-              </div>
-              <div className="mt-2 flex gap-2">
-                {[5, 8, 10, 12].map((n) => (
-                  <button
-                    key={n}
-                    onClick={() => setReps(String(n))}
-                    className={`flex-1 rounded-xl py-2 text-sm font-medium ${
-                      reps === String(n)
-                        ? "bg-gold text-black"
-                        : "bg-surface-2 text-muted"
-                    }`}
-                  >
+            <div className="flex items-center justify-between">
+              <span className="text-lg">Reps per set</span>
+              <select
+                value={reps}
+                onChange={(e) => setReps(e.target.value)}
+                className="w-24 bg-transparent text-right text-lg outline-none"
+              >
+                <option value="">—</option>
+                {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                  <option key={n} value={n}>
                     {n}
-                  </button>
+                  </option>
                 ))}
-              </div>
+              </select>
             </div>
           </>
         )}
