@@ -1,12 +1,12 @@
 import type { SleepEntry } from "./types";
 
 // Nightly sleep score (0–100) combining several signals with fixed weights:
-//   Duration 56% · Quality 30% · Bedtime consistency 2% ·
-//   Wake consistency 2% · Symptoms 6% · Factors (hygiene) 4%
-// Duration and how rested you felt (quality) dominate; consistency is only a
-// tiebreaker between otherwise-identical nights.
-// Consistency compares the night to your rolling average; until there are a
-// few prior nights it uses a neutral value so new users aren't penalized.
+//   Duration 50% · Quality 28% · Wake time 10% ·
+//   Bedtime consistency 2% · Symptoms 6% · Factors (hygiene) 4%
+// Duration and how rested you felt (quality) dominate. Duration peaks at 8h.
+// Wake time is absolute (not consistency): waking pre-dawn reflects a genuinely
+// rougher night, so 5am < 6am < a full morning. Bedtime consistency is only a
+// tiebreaker; until there are a few prior nights it uses a neutral value.
 
 export type ScoreParts = {
   duration: number;
@@ -18,10 +18,10 @@ export type ScoreParts = {
 };
 
 const WEIGHTS: ScoreParts = {
-  duration: 0.56,
+  duration: 0.5,
   bedtime: 0.02,
-  wake: 0.02,
-  quality: 0.3,
+  wake: 0.1,
+  quality: 0.28,
   symptoms: 0.06,
   factors: 0.04,
 };
@@ -48,9 +48,21 @@ function consistency(value: number, history: number[]): number {
 }
 
 function durationScore(mins: number): number {
-  if (mins >= 420 && mins <= 540) return 100; // 7–9h sweet spot
-  if (mins < 420) return clamp(100 - (420 - mins) * 0.5);
-  return clamp(100 - (mins - 540) * 0.25); // oversleeping penalized less
+  // Peaks at 8h (480 min). You still score high across the 7–9h band, but 8h
+  // tops it: 7h eases to ~90 and 9h to ~92, then it falls off outside the band.
+  if (mins < 420) return clamp(90 - (420 - mins) * 0.5); // below 7h drops fast
+  if (mins <= 480) return clamp(90 + (mins - 420) * (10 / 60)); // 7h→90 .. 8h→100
+  if (mins <= 540) return clamp(100 - (mins - 480) * (8 / 60)); // 8h→100 .. 9h→92
+  return clamp(92 - (mins - 540) * 0.25); // over 9h eases down gently
+}
+
+// Absolute wake-time quality: waking in the pre-dawn hours reflects a genuinely
+// rougher night, independent of hours logged. Full marks once you wake around
+// 6am or later; earlier mornings ease down ~20 pts/hour, so 5am ≈ 80, 4am ≈ 60,
+// 3am ≈ 40. `iso` is the wake timestamp; local minutes past midnight.
+function wakeTimeScore(iso: string): number {
+  const m = localMinutes(iso);
+  return clamp(100 - Math.max(0, 360 - m) * (20 / 60));
 }
 
 // `all` is the full list; prior nights are derived by date.
@@ -68,10 +80,6 @@ export function sleepScore(
     .filter((e) => e.bedtime)
     .slice(0, 14)
     .map((e) => bedtimeMinutes(e.bedtime as string));
-  const priorWake = prior
-    .filter((e) => e.wake_time)
-    .slice(0, 14)
-    .map((e) => localMinutes(e.wake_time as string));
 
   const parts: ScoreParts = {
     duration: durationScore(entry.duration_minutes),
@@ -79,10 +87,7 @@ export function sleepScore(
       entry.bedtime && priorBed.length >= 3
         ? consistency(bedtimeMinutes(entry.bedtime), priorBed)
         : 80,
-    wake:
-      entry.wake_time && priorWake.length >= 3
-        ? consistency(localMinutes(entry.wake_time), priorWake)
-        : 80,
+    wake: entry.wake_time ? wakeTimeScore(entry.wake_time as string) : 85,
     quality: entry.quality ? (entry.quality / 5) * 100 : 60,
     symptoms: (() => {
       const s = (entry.symptoms ?? "").toLowerCase();
