@@ -27,6 +27,7 @@ export default async function WorkoutPage() {
     { data: lastSession },
     { data: acts },
     { data: recentSessions },
+    { data: lastPerf },
   ] = await Promise.all([
     supabase.from("workout_templates").select("*").order("sort_order"),
     supabase
@@ -52,6 +53,12 @@ export default async function WorkoutPage() {
       .order("performed_at", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(30),
+    supabase
+      .from("session_exercises")
+      .select(
+        "exercise_id, weight, workout_sessions!inner(performed_at), session_sets(reps, set_number)"
+      )
+      .limit(120),
   ]);
 
   // Average of recent actual durations per template (last 5 each) — powers the
@@ -67,6 +74,32 @@ export default async function WorkoutPage() {
     avgDurationByTemplate[name] = Math.round(
       recent.reduce((a, b) => a + b, 0) / recent.length
     );
+  }
+
+  // Last performed weight + reps per exercise, so the workout screen can show
+  // "what you did last time" with the suggested weight incremented on top.
+  const lastPerformed: Record<
+    string,
+    { weight: number; date: string; reps: number[] }
+  > = {};
+  const perfRows = [...(((lastPerf as any[]) ?? []))].sort((a, b) =>
+    (a.workout_sessions?.performed_at ?? "") <
+    (b.workout_sessions?.performed_at ?? "")
+      ? 1
+      : -1
+  );
+  for (const r of perfRows) {
+    const id = r.exercise_id as string | null;
+    if (!id || lastPerformed[id]) continue; // first = most recent
+    const reps = ((r.session_sets as any[]) ?? [])
+      .slice()
+      .sort((x, y) => x.set_number - y.set_number)
+      .map((s) => Number(s.reps));
+    lastPerformed[id] = {
+      weight: Number(r.weight),
+      date: r.workout_sessions?.performed_at ?? "",
+      reps,
+    };
   }
 
   const built: TemplateWithExercises[] = (templates ?? []).map((t) => ({
@@ -92,6 +125,7 @@ export default async function WorkoutPage() {
       unit="lb"
       initialActivities={(acts as Activity[]) ?? []}
       avgDurationByTemplate={avgDurationByTemplate}
+      lastPerformed={lastPerformed}
     />
   );
 }

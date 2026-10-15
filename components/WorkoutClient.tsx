@@ -31,12 +31,15 @@ export default function WorkoutClient({
   startIndex,
   unit,
   avgDurationByTemplate = {},
+  lastPerformed = {},
 }: {
   templates: TemplateWithExercises[];
   startIndex: number;
   unit: string;
   // Average of recent actual durations (seconds) per template name.
   avgDurationByTemplate?: Record<string, number>;
+  // Most recent performed weight + reps per exercise id (the "last time" memo).
+  lastPerformed?: Record<string, { weight: number; date: string; reps: number[] }>;
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -345,6 +348,26 @@ export default function WorkoutClient({
                   <ChevronRight />
                 </span>
               </button>
+              {(() => {
+                const lp = lastPerformed[ex.id];
+                if (!lp || !lp.weight) return null;
+                const repsStr = lp.reps.length
+                  ? ` · ${lp.reps.join("·")}`
+                  : "";
+                const dateStr = lp.date
+                  ? new Date(lp.date + "T00:00:00").toLocaleDateString(
+                      undefined,
+                      { month: "short", day: "numeric" }
+                    )
+                  : "";
+                return (
+                  <div className="mt-1 text-sm text-muted">
+                    Last time: {formatWeight(lp.weight, unit)}
+                    {repsStr}
+                    {dateStr ? ` · ${dateStr}` : ""}
+                  </div>
+                );
+              })()}
               <div className="mt-3 -mx-1.5 flex gap-3 overflow-x-auto px-1.5 py-1.5">
                 {sets.map((reps, i) => (
                   <SetCircle
