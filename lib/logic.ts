@@ -7,6 +7,23 @@ export function roundWeight(w: number): number {
   return Math.round(w * 2) / 2;
 }
 
+// Round to the nearest ODD whole number. Barbell weights read cleanest on odd
+// numbers (a 45 lb bar plus paired plates lands on odd totals), and the user
+// prefers them, so auto-calculated next weights snap to odd. `prefer` breaks an
+// exact even tie: up after a gain (keep progressing), down after a deload.
+// Manual edits are never forced through this — the user can always override.
+export function roundToOdd(w: number, prefer: 1 | -1 = 1): number {
+  const r = Math.round(w);
+  if (Math.abs(r) % 2 === 1) return r; // already odd
+  const up = r + 1;
+  const down = r - 1;
+  const dUp = Math.abs(up - w);
+  const dDown = Math.abs(w - down);
+  if (dUp < dDown) return up;
+  if (dDown < dUp) return down;
+  return prefer === 1 ? up : down; // exact tie → direction of the change
+}
+
 // A session "succeeds" for an exercise when every target set hit target reps.
 export function isExerciseSuccess(
   setsReps: number[],
@@ -33,14 +50,15 @@ export function applyProgression(
 ): { current_weight: number; fail_streak: number } {
   if (success) {
     return {
-      current_weight: roundWeight(ex.current_weight + ex.increment),
+      current_weight: roundToOdd(ex.current_weight + ex.increment, 1),
       fail_streak: 0,
     };
   }
   const nextStreak = ex.fail_streak + 1;
   if (nextStreak >= ex.deload_after_fails) {
-    const deloaded = roundWeight(
-      ex.current_weight * (1 - ex.deload_pct / 100)
+    const deloaded = roundToOdd(
+      ex.current_weight * (1 - ex.deload_pct / 100),
+      -1
     );
     return { current_weight: Math.max(deloaded, ex.bar_weight ?? 45), fail_streak: 0 };
   }
