@@ -62,11 +62,15 @@ export default async function WorkoutPage() {
   ]);
 
   // Average of recent actual durations per template (last 5 each) — powers the
-  // finish-time estimate.
+  // finish-time estimate. Skip implausibly long sessions (> 3h): those come
+  // from a stopwatch left running (forgot to tap the last set / click Finish)
+  // and would otherwise blow up the estimate.
+  const MAX_PLAUSIBLE_SEC = 3 * 3600;
   const durLists: Record<string, number[]> = {};
   for (const s of (recentSessions as any[]) ?? []) {
-    if (s.duration_seconds == null) continue;
-    (durLists[s.template_name ?? ""] ??= []).push(Number(s.duration_seconds));
+    const d = Number(s.duration_seconds);
+    if (s.duration_seconds == null || !(d > 0) || d > MAX_PLAUSIBLE_SEC) continue;
+    (durLists[s.template_name ?? ""] ??= []).push(d);
   }
   const avgDurationByTemplate: Record<string, number> = {};
   for (const [name, list] of Object.entries(durLists)) {
