@@ -26,6 +26,17 @@ type Log = Record<string, (number | null)[]>;
 // localStorage key for an in-progress workout (persists across tab switches).
 const ACTIVE_KEY = "activeWorkout";
 
+// A real strength session tops out around a couple of hours. Anything beyond
+// this almost certainly means the stopwatch was left running (forgot to tap the
+// last set / click Finish), so we don't trust it as a real duration.
+const MAX_PLAUSIBLE_SEC = 3 * 3600;
+
+// Deterministic rest-based estimate: each set ≈ reps execution + rest.
+function restModelSec(exs: { sets: number; reps: number }[]): number {
+  const REST = 180; // ~3 min between heavy sets
+  return exs.reduce((sec, ex) => sec + ex.sets * (ex.reps * 3 + REST), 0);
+}
+
 export default function WorkoutClient({
   templates,
   startIndex,
@@ -183,10 +194,22 @@ export default function WorkoutClient({
       } = await supabase.auth.getUser();
       if (!user) throw new Error("Not signed in");
 
-      const duration =
-        startTime !== null
-          ? Math.round((Date.now() - startTime) / 1000)
-          : null;
+      // Record the span of actual activity (start → last logged set), NOT the
+      // Finish-click time — that can land hours later if you walked away or
+      // forgot to tap the last set. If even that span is implausibly long,
+      // fall back to the rest-based model so a stray session can't poison the
+      // finish-time estimates that learn from history.
+      let duration: number | null = null;
+      if (startTime !== null) {
+        const endedAt = lastSetAt ?? Date.now();
+        const span = Math.round((Math.max(endedAt, startTime) - startTime) / 1000);
+        duration = span > 0 ? span : null;
+        if (duration !== null && duration > MAX_PLAUSIBLE_SEC) {
+          duration = restModelSec(
+            attempted.map((e) => ({ sets: e.sets, reps: e.reps }))
+          );
+        }
+      }
 
       const { data: session, error: sErr } = await supabase
         .from("workout_sessions")
@@ -275,24 +298,23 @@ export default function WorkoutClient({
   const baseEstSec = (() => {
     const hist = avgDurationByTemplate[template.name];
     if (hist && hist > 0) return hist;
-    const REST = 180; // ~3 min between heavy sets
-    let sec = 0;
-    for (const e of template.exercises) {
-      const ex = exMap[e.id] ?? e;
-      sec += ex.sets * (ex.reps * 3 + REST);
-    }
-    return sec;
+    return restModelSec(template.exercises.map((e) => exMap[e.id] ?? e));
   })();
 
   // Once a couple sets are in, blend the base estimate with this session's
   // actual pace so the finish time adapts to how today is actually going.
+  // Capped so idle time (walking away mid-set) can't balloon the projection.
   const projectedSec = (() => {
     if (!started) return baseEstSec;
+    let p: number;
     if (loggedCount >= 2 && totalSets > 0) {
       const projected = (elapsedSec / loggedCount) * totalSets;
-      return Math.round((projected + baseEstSec) / 2);
+      p = Math.round((projected + baseEstSec) / 2);
+    } else {
+      p = Math.max(baseEstSec, elapsedSec);
     }
-    return Math.max(baseEstSec, elapsedSec);
+    const cap = Math.max(baseEstSec * 2, 90 * 60); // 2× baseline or 90 min
+    return Math.min(p, cap);
   })();
 
   const estMinutes = Math.max(1, Math.round(projectedSec / 60));
