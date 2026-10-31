@@ -1,6 +1,7 @@
 // First-login seeding of the StrongLifts 5x5 program.
-// Defaults reflect the user's screenshots (Squat +2lb increment, working
-// weights Squat 101 / Bench 95 / Row 95). Everything is editable later.
+// Defaults reflect the user's screenshots (working weights Squat 101 / Bench 95
+// / Row 95). Every lift increments +2 lb total (1 lb per side). Everything is
+// editable later.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -12,13 +13,13 @@ type SeedExercise = {
   reps: number;
 };
 
-// Exercise catalog. Default is 3 sets × 8 reps per exercise (deadlift 3×5);
-// sets/reps are editable per exercise in the app, so this is only a starting point.
+// Exercise catalog. Default is 3 sets × 8 reps per exercise (deadlift 3×5), and
+// every lift increments +2 lb (1 lb per side); all editable per exercise.
 const SQUAT: SeedExercise = { name: "Squat", current_weight: 101, increment: 2, sets: 3, reps: 8 };
-const BENCH: SeedExercise = { name: "Bench Press", current_weight: 95, increment: 5, sets: 3, reps: 8 };
-const ROW: SeedExercise = { name: "Barbell Row", current_weight: 95, increment: 5, sets: 3, reps: 8 };
-const OHP: SeedExercise = { name: "Overhead Press", current_weight: 45, increment: 5, sets: 3, reps: 8 };
-const DEAD: SeedExercise = { name: "Deadlift", current_weight: 95, increment: 10, sets: 3, reps: 5 };
+const BENCH: SeedExercise = { name: "Bench Press", current_weight: 95, increment: 2, sets: 3, reps: 8 };
+const ROW: SeedExercise = { name: "Barbell Row", current_weight: 95, increment: 2, sets: 3, reps: 8 };
+const OHP: SeedExercise = { name: "Overhead Press", current_weight: 45, increment: 2, sets: 3, reps: 8 };
+const DEAD: SeedExercise = { name: "Deadlift", current_weight: 95, increment: 2, sets: 3, reps: 5 };
 
 // Workout A: Squat, Bench, Row   |   Workout B: Squat, OHP, Deadlift
 const WORKOUT_A = [SQUAT, BENCH, ROW];
