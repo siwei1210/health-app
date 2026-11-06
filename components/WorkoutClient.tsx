@@ -43,6 +43,7 @@ export default function WorkoutClient({
   unit,
   avgDurationByTemplate = {},
   lastPerformed = {},
+  cycleDone = {},
 }: {
   templates: TemplateWithExercises[];
   startIndex: number;
@@ -51,6 +52,9 @@ export default function WorkoutClient({
   avgDurationByTemplate?: Record<string, number>;
   // Most recent performed weight + reps per exercise id (the "last time" memo).
   lastPerformed?: Record<string, { weight: number; date: string; reps: number[] }>;
+  // Exercises already completed in the current (unfinished) A/B cycle — kept
+  // highlighted as a reminder of what's been done on earlier days.
+  cycleDone?: Record<string, { date: string; reps: number[] }>;
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -291,7 +295,9 @@ export default function WorkoutClient({
     setsFor(e).some((r) => r !== null)
   );
   const skippedNames = template.exercises
-    .filter((e) => !setsFor(e).some((r) => r !== null))
+    .filter(
+      (e) => !setsFor(e).some((r) => r !== null) && !cycleDone[e.id]
+    )
     .map((e) => exMap[e.id]?.name ?? e.name);
 
   const totalSets = template.exercises.reduce(
@@ -363,6 +369,11 @@ export default function WorkoutClient({
           const ex = exMap[tplEx.id] ?? tplEx;
           const sets = setsFor(ex);
           const nextIdx = sets.findIndex((r) => r === null);
+          // Completed earlier in this A/B cycle and not yet re-touched today →
+          // keep it highlighted (dimmed) with a "Done" note instead of blank.
+          const doneCycle = cycleDone[ex.id];
+          const touchedToday = sets.some((r) => r !== null);
+          const showDone = !!doneCycle && !touchedToday;
           return (
             <div key={ex.id}>
               <button
@@ -380,33 +391,54 @@ export default function WorkoutClient({
                   <ChevronRight />
                 </span>
               </button>
-              {(() => {
-                const lp = lastPerformed[ex.id];
-                if (!lp || !lp.weight) return null;
-                const repsStr = lp.reps.length
-                  ? ` · ${lp.reps.join("·")}`
-                  : "";
-                const dateStr = lp.date
-                  ? new Date(lp.date + "T00:00:00").toLocaleDateString(
-                      undefined,
-                      { month: "short", day: "numeric" }
-                    )
-                  : "";
-                return (
-                  <div className="mt-1 text-sm text-muted">
-                    Last time: {formatWeight(lp.weight, unit)}
-                    {repsStr}
-                    {dateStr ? ` · ${dateStr}` : ""}
-                  </div>
-                );
-              })()}
-              <div className="mt-3 -mx-1.5 flex gap-3 overflow-x-auto px-1.5 py-1.5">
+              {!showDone &&
+                (() => {
+                  const lp = lastPerformed[ex.id];
+                  if (!lp || !lp.weight) return null;
+                  const repsStr = lp.reps.length
+                    ? ` · ${lp.reps.join("·")}`
+                    : "";
+                  const dateStr = lp.date
+                    ? new Date(lp.date + "T00:00:00").toLocaleDateString(
+                        undefined,
+                        { month: "short", day: "numeric" }
+                      )
+                    : "";
+                  return (
+                    <div className="mt-1 text-sm text-muted">
+                      Last time: {formatWeight(lp.weight, unit)}
+                      {repsStr}
+                      {dateStr ? ` · ${dateStr}` : ""}
+                    </div>
+                  );
+                })()}
+              {showDone && (
+                <div className="mt-1 text-sm font-medium text-accent">
+                  ✓ Done
+                  {doneCycle!.date
+                    ? ` ${new Date(
+                        doneCycle!.date + "T00:00:00"
+                      ).toLocaleDateString(undefined, {
+                        weekday: "short",
+                        month: "short",
+                        day: "numeric",
+                      })}`
+                    : " this cycle"}
+                  {doneCycle!.reps.length ? ` · ${doneCycle!.reps.join("·")}` : ""}{" "}
+                  · tap to redo
+                </div>
+              )}
+              <div
+                className={`mt-3 -mx-1.5 flex gap-3 overflow-x-auto px-1.5 py-1.5 ${
+                  showDone ? "opacity-60" : ""
+                }`}
+              >
                 {sets.map((reps, i) => (
                   <SetCircle
                     key={i}
-                    reps={reps}
+                    reps={showDone ? doneCycle!.reps[i] ?? reps : reps}
                     target={ex.reps}
-                    active={i === nextIdx}
+                    active={!showDone && i === nextIdx}
                     onClick={() => tapSet(ex, i)}
                   />
                 ))}

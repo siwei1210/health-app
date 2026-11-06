@@ -36,7 +36,9 @@ export default async function WorkoutPage() {
       .order("sort_order"),
     supabase
       .from("workout_sessions")
-      .select("template_name, performed_at, session_exercises(exercise_id)")
+      .select(
+        "template_name, performed_at, session_exercises(exercise_id, session_sets(reps, set_number))"
+      )
       .order("performed_at", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(10),
@@ -120,21 +122,36 @@ export default async function WorkoutPage() {
   // exercises done across the run of most-recent consecutive sessions of the
   // same template; if that covers the whole template, advance to the next one,
   // otherwise stay so the remaining exercises come up next time.
+  //
+  // When staying, `cycleDone` carries the exercises already done this cycle (+
+  // reps and date) so the screen can keep them highlighted as a reminder.
   let startIndex = 0;
+  const cycleDone: Record<string, { date: string; reps: number[] }> = {};
   const startSessions = (recentForStart as any[]) ?? [];
   if (startSessions.length > 0 && built.length > 0) {
     const latestName = startSessions[0].template_name as string | null;
     const curIdx = built.findIndex((t) => t.name === latestName);
     if (curIdx >= 0) {
-      const doneIds = new Set<string>();
+      const done: Record<string, { date: string; reps: number[] }> = {};
       for (const s of startSessions) {
         if (s.template_name !== latestName) break; // reached the previous cycle
         for (const se of (s.session_exercises as any[]) ?? []) {
-          if (se.exercise_id) doneIds.add(se.exercise_id as string);
+          const id = se.exercise_id as string | null;
+          if (!id || done[id]) continue; // sessions are newest-first
+          const reps = ((se.session_sets as any[]) ?? [])
+            .slice()
+            .sort((a, b) => a.set_number - b.set_number)
+            .map((x) => Number(x.reps));
+          done[id] = { date: s.performed_at ?? "", reps };
         }
       }
-      const allDone = built[curIdx].exercises.every((e) => doneIds.has(e.id));
-      startIndex = allDone ? (curIdx + 1) % built.length : curIdx;
+      const allDone = built[curIdx].exercises.every((e) => done[e.id]);
+      if (allDone) {
+        startIndex = (curIdx + 1) % built.length; // new cycle — nothing done yet
+      } else {
+        startIndex = curIdx; // stay on this workout
+        Object.assign(cycleDone, done); // remind what's already done this cycle
+      }
     }
   }
 
@@ -146,6 +163,7 @@ export default async function WorkoutPage() {
       initialActivities={(acts as Activity[]) ?? []}
       avgDurationByTemplate={avgDurationByTemplate}
       lastPerformed={lastPerformed}
+      cycleDone={cycleDone}
     />
   );
 }
