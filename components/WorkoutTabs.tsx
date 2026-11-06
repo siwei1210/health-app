@@ -14,6 +14,7 @@ export default function WorkoutTabs({
   initialActivities,
   avgDurationByTemplate = {},
   lastPerformed = {},
+  cycleDone = {},
 }: {
   templates: TemplateWithExercises[];
   startIndex: number;
@@ -21,6 +22,7 @@ export default function WorkoutTabs({
   initialActivities: Activity[];
   avgDurationByTemplate?: Record<string, number>;
   lastPerformed?: Record<string, { weight: number; date: string; reps: number[] }>;
+  cycleDone?: Record<string, { date: string; reps: number[] }>;
 }) {
   const [mode, setMode] = useState<"strength" | "activity">("strength");
 
@@ -48,6 +50,7 @@ export default function WorkoutTabs({
           unit={unit}
           avgDurationByTemplate={avgDurationByTemplate}
           lastPerformed={lastPerformed}
+          cycleDone={cycleDone}
         />
       ) : (
         <ActivityLogger initialActivities={initialActivities} />
