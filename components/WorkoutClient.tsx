@@ -284,6 +284,16 @@ export default function WorkoutClient({
     0
   );
 
+  // Which exercises were touched vs. skipped. Finishing saves only the ones you
+  // logged; skipped lifts are left untouched (not saved, not counted as missed),
+  // so you can do just a subset today and the rest another day.
+  const doneExercises = template.exercises.filter((e) =>
+    setsFor(e).some((r) => r !== null)
+  );
+  const skippedNames = template.exercises
+    .filter((e) => !setsFor(e).some((r) => r !== null))
+    .map((e) => exMap[e.id]?.name ?? e.name);
+
   const totalSets = template.exercises.reduce(
     (n, e) => n + (exMap[e.id]?.sets ?? e.sets),
     0
@@ -468,8 +478,19 @@ export default function WorkoutClient({
           >
             {saving
               ? "Saving…"
-              : `Finish workout${loggedCount ? ` (${loggedCount} sets)` : ""}`}
+              : `Finish${
+                  doneExercises.length
+                    ? ` ${doneExercises.length} exercise${
+                        doneExercises.length > 1 ? "s" : ""
+                      } (${loggedCount} set${loggedCount > 1 ? "s" : ""})`
+                    : " workout"
+                }`}
           </button>
+          {!saving && doneExercises.length > 0 && skippedNames.length > 0 && (
+            <p className="mt-2 text-center text-sm text-muted">
+              Skipping {skippedNames.join(", ")} — you can do {skippedNames.length > 1 ? "them" : "it"} another day, not counted as missed.
+            </p>
+          )}
         </>
       )}
 
