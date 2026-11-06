@@ -24,7 +24,7 @@ export default async function WorkoutPage() {
   const [
     { data: templates },
     { data: tplEx },
-    { data: lastSession },
+    { data: recentForStart },
     { data: acts },
     { data: recentSessions },
     { data: lastPerf },
@@ -36,11 +36,10 @@ export default async function WorkoutPage() {
       .order("sort_order"),
     supabase
       .from("workout_sessions")
-      .select("template_name, performed_at")
+      .select("template_name, performed_at, session_exercises(exercise_id)")
       .order("performed_at", { ascending: false })
       .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+      .limit(10),
     supabase
       .from("activities")
       .select("*")
@@ -115,11 +114,28 @@ export default async function WorkoutPage() {
       .filter(Boolean),
   }));
 
-  // Alternate A → B → A. Pick the template *after* the last one performed.
+  // Which workout to show on open. Alternate A → B → A, BUT only advance once
+  // every exercise of the current workout has been done — because sessions can
+  // now be partial (e.g. Squat + Bench today, Row another day). So we union the
+  // exercises done across the run of most-recent consecutive sessions of the
+  // same template; if that covers the whole template, advance to the next one,
+  // otherwise stay so the remaining exercises come up next time.
   let startIndex = 0;
-  if (lastSession?.template_name && built.length > 0) {
-    const lastIdx = built.findIndex((t) => t.name === lastSession.template_name);
-    if (lastIdx >= 0) startIndex = (lastIdx + 1) % built.length;
+  const startSessions = (recentForStart as any[]) ?? [];
+  if (startSessions.length > 0 && built.length > 0) {
+    const latestName = startSessions[0].template_name as string | null;
+    const curIdx = built.findIndex((t) => t.name === latestName);
+    if (curIdx >= 0) {
+      const doneIds = new Set<string>();
+      for (const s of startSessions) {
+        if (s.template_name !== latestName) break; // reached the previous cycle
+        for (const se of (s.session_exercises as any[]) ?? []) {
+          if (se.exercise_id) doneIds.add(se.exercise_id as string);
+        }
+      }
+      const allDone = built[curIdx].exercises.every((e) => doneIds.has(e.id));
+      startIndex = allDone ? (curIdx + 1) % built.length : curIdx;
+    }
   }
 
   return (
