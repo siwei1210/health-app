@@ -7,11 +7,11 @@ export function roundWeight(w: number): number {
   return Math.round(w * 2) / 2;
 }
 
-// Round to the nearest ODD whole number. Barbell weights read cleanest on odd
-// numbers (a 45 lb bar plus paired plates lands on odd totals), and the user
-// prefers them, so auto-calculated next weights snap to odd. `prefer` breaks an
-// exact even tie: up after a gain (keep progressing), down after a deload.
-// Manual edits are never forced through this — the user can always override.
+// Round to the nearest ODD whole number. Used only on % deloads, where the
+// result is fractional and reads cleanest as an odd barbell weight. `prefer`
+// breaks an exact even tie (down after a deload). NOT used on gains: a gain adds
+// exactly the increment so progression is always +increment (e.g. +2 lb), never
+// nudged to an odd number. Manual edits are never forced through this.
 export function roundToOdd(w: number, prefer: 1 | -1 = 1): number {
   const r = Math.round(w);
   if (Math.abs(r) % 2 === 1) return r; // already odd
@@ -50,7 +50,9 @@ export function applyProgression(
 ): { current_weight: number; fail_streak: number } {
   if (success) {
     return {
-      current_weight: roundToOdd(ex.current_weight + ex.increment, 1),
+      // Add exactly the increment (e.g. +2 lb). Rounded to 0.5 only to tidy
+      // float math — never nudged to an odd number, which would overshoot.
+      current_weight: roundWeight(ex.current_weight + ex.increment),
       fail_streak: 0,
     };
   }
